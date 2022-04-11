@@ -88,8 +88,8 @@ SDL_Window* InitialiseWindow(unsigned int windowWidth,
 GraphicsRenderPass* CreateStandardRenderPass(Renderer* renderer)
 {
     GraphicsRenderPassInfo info;
-    info.vsPath = "../x64/debug/StandardVS.cso";
-    info.psPath = "../x64/debug//StandardPS.cso";
+    info.vsPath = SHADER_ROOT_DIR "shaders/StandardVS.cso";
+    info.psPath = SHADER_ROOT_DIR "shaders/StandardPS.cso";
 
     PipelineBinding vertexBinding;
     vertexBinding.dataType = PipelineDataType::VERTEX;
@@ -273,6 +273,7 @@ bool CreateCubeMesh(Mesh& mesh, Renderer* renderer)
 bool LoadTexture(ResourceIndex& toSet,
     Renderer* renderer, std::string filePath, unsigned int components)
 {
+    filePath = CONTENT_ROOT_DIR + filePath;
     int width, height;
     unsigned char* imageData = stbi_load(filePath.c_str(),
         &width, &height, nullptr, components);
