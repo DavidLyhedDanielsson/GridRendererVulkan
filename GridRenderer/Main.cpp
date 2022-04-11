@@ -7,8 +7,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "D3D11/RendererD3D11.h"
+#ifdef USE_VULKAN
 #include "Vulkan/RendererVulkan.h"
+#elif USE_D3D11
+#include "D3D11/RendererD3D11.h"
+#endif
 
 struct Inputs
 {
@@ -496,7 +499,13 @@ int main(int argc, char* argv[]) {
     const unsigned int WINDOW_HEIGHT = 720;
     SDL_Window* windowHandle = InitialiseWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    Renderer* renderer = new RendererD3D11(windowHandle);
+    Renderer* renderer;
+#ifdef USE_VULKAN
+    renderer = new RendererVulkan(windowHandle);
+#elif USE_D3D11
+    renderer = new RendererD3D11(windowHandle);
+#endif
+
     GraphicsRenderPass* standardPass = CreateStandardRenderPass(renderer);
 
     const int DIMENSION = 5;

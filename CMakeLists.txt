@@ -2,12 +2,23 @@ cmake_minimum_required(VERSION 3.21)
 
 project(GridRenderer)
 
+# Choose one :)
+#set(RENDER_BACKEND VULKAN)
+set(RENDER_BACKEND D3D11)
+
+if(NOT DEFINED RENDER_BACKEND)
+    message(FATAL_ERROR "One render backend must be selected")
+else()
+    add_compile_definitions(USE_${RENDER_BACKEND})
+endif()
+
 # General project properties
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_GENERATOR_PLATFORM x64)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-add_compile_definitions(SHADER_ROOT_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/")
-add_compile_definitions(CONTENT_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Textures/")
+add_compile_definitions(
+        SHADER_ROOT_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
+        CONTENT_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Textures/")
 
 # Dependencies
 find_program(FXC fxc REQUIRED)
