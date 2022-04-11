@@ -1,0 +1,606 @@
+#include <stdexcept>
+#include <Windows.h>
+#include <string>
+#include <vector>
+#include <chrono>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include "RendererD3D11.h"
+
+struct Inputs
+{
+    bool moveLeftPushed = false;
+    bool moveRightPushed = false;
+    bool moveForwardPushed = false;
+    bool moveBackwardsPushed = false;
+    bool moveUpPushed = false;
+    bool moveDownPushed = false;
+
+    bool turnLeftPushed = false;
+    bool turnRightPushed = false;
+
+    bool quitKey = false;
+} globalInputs;
+
+struct SimpleVertex
+{
+    float position[3] = { 0.0f, 0.0f, 0.0f };
+    float uv[2] = { 0.0f, 0.0f };
+    float normal[3] = { 0.0f, 0.0f, 0.0f };
+};
+
+struct PointLight
+{
+    float position[3] = { 0.0f, 0.0f, 0.0f };
+    float colour[3] = { 1.0f, 1.0f, 1.0f };
+};
+
+void HandleKeyEvent(WPARAM wParam, bool value)
+{
+    switch (wParam)
+    {
+    case 0x41:
+        globalInputs.moveLeftPushed = value;
+        break;
+    case 0x44:
+        globalInputs.moveRightPushed = value;
+        break;
+    case 0x57:
+        globalInputs.moveForwardPushed = value;
+        break;
+    case 0x53:
+        globalInputs.moveBackwardsPushed = value;
+        break;
+    case VK_SHIFT:
+        globalInputs.moveUpPushed = value;
+        break;
+    case VK_CONTROL:
+        globalInputs.moveDownPushed = value;
+        break;
+    case VK_ESCAPE:
+        globalInputs.quitKey = value;
+        break;
+    case 0x51:
+        globalInputs.turnLeftPushed = value;
+        break;
+    case 0x45:
+        globalInputs.turnRightPushed = value;
+        break;
+    }
+}
+
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    // sort through and find what code to run for the message given
+    switch (message)
+    {
+        // this message is read when the window is closed
+    case WM_DESTROY:
+    {
+        // close the application entirely
+        PostQuitMessage(0);
+        return 0;
+    } break;
+
+    case WM_KEYDOWN:
+    {
+        HandleKeyEvent(wParam, true);
+    } break;
+
+    case WM_KEYUP:
+    {
+        HandleKeyEvent(wParam, false);
+    } break;
+    }
+
+    // Handle any messages the switch statement didn't
+    return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+HWND InitialiseWindow(HINSTANCE hInstance, unsigned int windowWidth,
+    unsigned int windowHeight, bool windowed = true)
+{
+    const wchar_t CLASS_NAME[] = L"Test Window Class";
+
+    WNDCLASS wc = { };
+
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+
+    RegisterClass(&wc);
+
+    DWORD windowStyle = windowed ? WS_OVERLAPPEDWINDOW : WS_EX_TOPMOST | WS_POPUP;
+    RECT rt = { 0, 0, static_cast<LONG>(windowWidth),
+        static_cast<LONG>(windowHeight) };
+    AdjustWindowRect(&rt, windowStyle, FALSE);
+
+    HWND hWnd = CreateWindowEx(0, CLASS_NAME, L"Grid renderer", windowStyle,
+        0, 0, rt.right - rt.left, rt.bottom - rt.top, nullptr, nullptr,
+        hInstance, nullptr);
+
+    if (hWnd == nullptr)
+    {
+        DWORD errorCode = GetLastError();
+        throw std::runtime_error("Could not create window, last error: " +
+            std::to_string(errorCode));
+    }
+
+    ShowWindow(hWnd, windowed ? SW_SHOWNORMAL : SW_SHOWMAXIMIZED);
+    return hWnd;
+}
+
+GraphicsRenderPass* CreateStandardRenderPass(Renderer* renderer)
+{
+    GraphicsRenderPassInfo info;
+    info.vsPath = "../x64/debug/StandardVS.cso";
+    info.psPath = "../x64/debug//StandardPS.cso";
+
+    PipelineBinding vertexBinding;
+    vertexBinding.dataType = PipelineDataType::VERTEX;
+    vertexBinding.bindingType = PipelineBindingType::SHADER_RESOURCE;
+    vertexBinding.shaderStage = PipelineShaderStage::VS;
+    vertexBinding.slotToBindTo = 0;
+    info.objectBindings.push_back(vertexBinding);
+
+    PipelineBinding indicesBinding;
+    indicesBinding.dataType = PipelineDataType::INDEX;
+    indicesBinding.bindingType = PipelineBindingType::SHADER_RESOURCE;
+    indicesBinding.shaderStage = PipelineShaderStage::VS;
+    indicesBinding.slotToBindTo = 1;
+    info.objectBindings.push_back(indicesBinding);
+
+    PipelineBinding transformBinding;
+    transformBinding.dataType = PipelineDataType::TRANSFORM;
+    transformBinding.bindingType = PipelineBindingType::CONSTANT_BUFFER;
+    transformBinding.shaderStage = PipelineShaderStage::VS;
+    transformBinding.slotToBindTo = 0;
+    info.objectBindings.push_back(transformBinding);
+
+    PipelineBinding vpBinding;
+    vpBinding.dataType = PipelineDataType::VIEW_PROJECTION;
+    vpBinding.bindingType = PipelineBindingType::CONSTANT_BUFFER;
+    vpBinding.shaderStage = PipelineShaderStage::VS;
+    vpBinding.slotToBindTo = 1;
+    info.globalBindings.push_back(vpBinding);
+
+    PipelineBinding diffuseTextureBinding;
+    diffuseTextureBinding.dataType = PipelineDataType::DIFFUSE;
+    diffuseTextureBinding.bindingType = PipelineBindingType::SHADER_RESOURCE;
+    diffuseTextureBinding.shaderStage = PipelineShaderStage::PS;
+    diffuseTextureBinding.slotToBindTo = 0;
+    info.objectBindings.push_back(diffuseTextureBinding);
+
+    PipelineBinding specularTextureBinding;
+    specularTextureBinding.dataType = PipelineDataType::SPECULAR;
+    specularTextureBinding.bindingType = PipelineBindingType::SHADER_RESOURCE;
+    specularTextureBinding.shaderStage = PipelineShaderStage::PS;
+    specularTextureBinding.slotToBindTo = 1;
+    info.objectBindings.push_back(specularTextureBinding);
+
+    PipelineBinding lightBufferBinding;
+    lightBufferBinding.dataType = PipelineDataType::LIGHT;
+    lightBufferBinding.bindingType = PipelineBindingType::SHADER_RESOURCE;
+    lightBufferBinding.shaderStage = PipelineShaderStage::PS;
+    lightBufferBinding.slotToBindTo = 2;
+    info.globalBindings.push_back(lightBufferBinding);
+
+    PipelineBinding cameraPosBinding;
+    cameraPosBinding.dataType = PipelineDataType::CAMERA_POS;
+    cameraPosBinding.bindingType = PipelineBindingType::CONSTANT_BUFFER;
+    cameraPosBinding.shaderStage = PipelineShaderStage::PS;
+    cameraPosBinding.slotToBindTo = 0;
+    info.globalBindings.push_back(cameraPosBinding);
+
+    ResourceIndex samplerIndex = renderer->GetSamplerManager()->CreateSampler(
+        SamplerType::ANISOTROPIC, AddressMode::CLAMP);
+
+    if (samplerIndex == ResourceIndex(-1))
+        throw std::runtime_error("Could not create clamp sampler");
+
+    PipelineBinding clampSamplerBinding;
+    clampSamplerBinding.dataType = PipelineDataType::SAMPLER;
+    clampSamplerBinding.bindingType = PipelineBindingType::NONE;
+    clampSamplerBinding.shaderStage = PipelineShaderStage::PS;
+    clampSamplerBinding.slotToBindTo = 0;
+    info.globalBindings.push_back(clampSamplerBinding);
+
+    GraphicsRenderPass* toReturn = renderer->CreateGraphicsRenderPass(info);
+    toReturn->SetGlobalSampler(PipelineShaderStage::PS, 0, samplerIndex);
+
+    return toReturn;
+}
+
+bool CreateTriangleMesh(Mesh& mesh, Renderer* renderer)
+{
+    SimpleVertex vertices[] =
+    {
+        {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.0f, 0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}},
+    };
+
+    ResourceIndex verticesIndex = renderer->GetBufferManager()->AddBuffer(
+        vertices, sizeof(SimpleVertex), ARRAYSIZE(vertices),
+        PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
+        BufferBinding::STRUCTURED_BUFFER);
+
+    if (verticesIndex == ResourceIndex(-1))
+        return false;
+
+    unsigned int indices[] = {0, 1, 2};
+
+    ResourceIndex indicesIndex = renderer->GetBufferManager()->AddBuffer(
+        indices, sizeof(unsigned int), ARRAYSIZE(indices), 
+        PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
+        BufferBinding::STRUCTURED_BUFFER);
+
+    if (indicesIndex == ResourceIndex(-1))
+        return false;
+
+    mesh.SetVertexBuffer(verticesIndex);
+    mesh.SetIndexBuffer(indicesIndex);
+
+    return true;
+}
+
+bool CreateCubeMesh(Mesh& mesh, Renderer* renderer)
+{
+    // Order per face is top left, top right, bottom left, bottom right
+    SimpleVertex vertices[] =
+    {
+        {{-0.5f, 0.5f, 0.5f}, {1.0f / 3, 0.0f}, {0.0f, 1.0f, 0.0f}}, // top
+        {{0.5f, 0.5f, 0.5f}, {2.0f / 3, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f, -0.5f}, {1.0f / 3, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, -0.5f}, {2.0f / 3, 0.5f}, {0.0f, 1.0f, 0.0f}},
+
+        {{0.5f, 0.5f, -0.5f}, {2.0f / 3, 0.0f}, {1.0f, 0.0f, 0.0f}}, // right
+        {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f, -0.5f}, {2.0f / 3, 0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.5f}, {1.0f, 0.5f}, {1.0f, 0.0f, 0.0f}},
+
+        {{-0.5f, 0.5f, -0.5f}, {1.0f / 3, 0.5f}, {0.0f, 0.0f, -1.0f}}, // back
+        {{0.5f, 0.5f, -0.5f}, {2.0f / 3, 0.5f}, {0.0f, 0.0f, -1.0f}},
+        {{-0.5f, -0.5f, -0.5f}, {1.0f / 3, 1.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.5f, -0.5f, -0.5f}, {2.0f / 3, 1.0f}, {0.0f, 0.0f, -1.0f}},
+
+        {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}}, // left
+        {{-0.5f, 0.5f, -0.5f}, {1.0f / 3, 0.0f}, {-1.0f, 0.0f, 0.0f}},
+        {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+        {{-0.5f, -0.5f, -0.5f}, {1.0f / 3, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+
+        {{0.5f, 0.5f, 0.5f}, {0.0f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // front
+        {{-0.5f, 0.5f, 0.5f}, {1.0f / 3, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{0.5f, -0.5f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.5f}, {1.0f / 3, 1.0f}, {0.0f, 0.0f, 1.0f}},
+
+        {{-0.5f, -0.5f, -0.5f}, {2.0f / 3, 0.5f}, {0.0f, 0.0f, -1.0f}}, // bottom
+        {{0.5f, -0.5f, -0.5f}, {1.0f, 0.5f}, {0.0f, 0.0f, -1.0f}},
+        {{-0.5f, -0.5f, 0.5f}, {2.0f / 3, 1.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.5f, -0.5f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}
+    };
+
+    ResourceIndex verticesIndex = renderer->GetBufferManager()->AddBuffer(
+        vertices, sizeof(SimpleVertex), ARRAYSIZE(vertices), 
+        PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
+        BufferBinding::STRUCTURED_BUFFER);
+
+    if (verticesIndex == ResourceIndex(-1))
+        return false;
+
+    const unsigned int NR_OF_INDICES = 36;
+    unsigned int indices[NR_OF_INDICES];
+    for (unsigned int i = 0; i < NR_OF_INDICES / 6; ++i)
+    {
+        unsigned int baseBufferIndex = i * 6;
+        unsigned int baseVertexIndex = i * 4;
+        indices[baseBufferIndex + 0] = baseVertexIndex + 0;
+        indices[baseBufferIndex + 1] = baseVertexIndex + 1;
+        indices[baseBufferIndex + 2] = baseVertexIndex + 2;
+        indices[baseBufferIndex + 3] = baseVertexIndex + 2;
+        indices[baseBufferIndex + 4] = baseVertexIndex + 1;
+        indices[baseBufferIndex + 5] = baseVertexIndex + 3;
+    }
+
+    ResourceIndex indicesIndex = renderer->GetBufferManager()->AddBuffer(
+        indices, sizeof(unsigned int), NR_OF_INDICES, PerFrameWritePattern::NEVER,
+        PerFrameWritePattern::NEVER, BufferBinding::STRUCTURED_BUFFER);
+
+    if (indicesIndex == ResourceIndex(-1))
+        return false;
+
+    mesh.SetVertexBuffer(verticesIndex);
+    mesh.SetIndexBuffer(indicesIndex);
+
+    return true;
+}
+
+bool LoadTexture(ResourceIndex& toSet,
+    Renderer* renderer, std::string filePath, unsigned int components)
+{
+    int width, height;
+    unsigned char* imageData = stbi_load(filePath.c_str(),
+        &width, &height, nullptr, components);
+
+    TextureInfo textureInfo;
+    textureInfo.baseTextureWidth = width;
+    textureInfo.baseTextureHeight = height;
+    textureInfo.format.componentCount = components == 4 ?
+        TexelComponentCount::QUAD : TexelComponentCount::SINGLE;
+    textureInfo.format.componentSize = TexelComponentSize::BYTE;
+    textureInfo.format.componentType = TexelComponentType::UNORM;
+    textureInfo.mipLevels = 1;
+    textureInfo.bindingFlags = TextureBinding::SHADER_RESOURCE;
+
+    toSet = renderer->GetTextureManager()->AddTexture(imageData, textureInfo);
+
+    return toSet != ResourceIndex(-1);
+}
+
+bool CreateTransformBuffer(ResourceIndex& toSet,
+    Renderer* renderer, float xPos, float yPos, float zPos)
+{
+    float matrix[16] =
+    {
+        1.0f, 0.0f, 0.0f, xPos,
+        0.0f, 1.0f, 0.0f, yPos,
+        0.0f, 0.0f, 1.0f, zPos,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    toSet = renderer->GetBufferManager()->AddBuffer(matrix,
+        sizeof(float) * 16, 1, PerFrameWritePattern::ONCE,
+        PerFrameWritePattern::NEVER, BufferBinding::CONSTANT_BUFFER);
+
+    return toSet != ResourceIndex(-1);
+}
+
+void TransformCamera(Camera* camera, float moveSpeed,
+    float turnSpeed, float deltaTime)
+{
+    if (globalInputs.moveRightPushed)
+        camera->MoveRight(moveSpeed * deltaTime);
+    else if (globalInputs.moveLeftPushed)
+        camera->MoveRight(-moveSpeed * deltaTime);
+
+    if (globalInputs.moveForwardPushed)
+        camera->MoveForward(moveSpeed * deltaTime);
+    else if (globalInputs.moveBackwardsPushed)
+        camera->MoveForward(-moveSpeed * deltaTime);
+
+    if (globalInputs.moveUpPushed)
+        camera->MoveUp(moveSpeed * deltaTime);
+    else if (globalInputs.moveDownPushed)
+        camera->MoveUp(-moveSpeed * deltaTime);
+
+    if (globalInputs.turnLeftPushed)
+        camera->RotateY(-turnSpeed * deltaTime);
+    else if (globalInputs.turnRightPushed)
+        camera->RotateY(turnSpeed * deltaTime);
+}
+
+bool LoadSurfacePropertyFiles(SurfaceProperty& surfaceProperties,
+    Renderer* renderer, const std::string& prefix)
+{
+    ResourceIndex diffuseTextureIndex;
+    if (!LoadTexture(diffuseTextureIndex, renderer, prefix + "Diffuse.png", 4))
+        return false;
+
+    ResourceIndex specularTextureIndex;
+    if (!LoadTexture(specularTextureIndex, renderer, prefix + "Specular.png", 4))
+        return false;
+
+    surfaceProperties.SetDiffuseTexture(diffuseTextureIndex);
+    surfaceProperties.SetSpecularTexture(specularTextureIndex);
+
+    return true;
+}
+
+bool CreateLights(ResourceIndex& toSet, Renderer* renderer, float offset)
+{
+    float height = offset / 2.0f;
+    PointLight lights[4] =
+    {
+        {{ -offset, height, 0.0f }, { 1.0f, 0.0f, 0.0f }},
+        {{ offset, height, 0.0f }, { 0.0f, 0.0f, 1.0f }},
+        {{ 0.0f, height, -offset }, { 1.0f, 1.0f, 1.0f }},
+        {{ 0.0f, height, offset }, { 0.0f, 1.0f, 0.0f }}
+    };
+
+    toSet = renderer->GetBufferManager()->AddBuffer(lights,
+        sizeof(PointLight), 4, PerFrameWritePattern::NEVER,
+        PerFrameWritePattern::NEVER, BufferBinding::STRUCTURED_BUFFER);
+
+    return toSet != ResourceIndex(-1);
+}
+
+bool PlacePyramid(const Mesh& cubeMesh, const SurfaceProperty& stoneProperties,
+    std::vector<RenderObject>& toStoreIn, Renderer* renderer, int height)
+{
+    int base = (height - 1) * 2 + 1;
+
+    for (int level = 0; level < height - 1; ++level)
+    {
+        int topLeftX = -(height - level - 1);
+        int topLeftZ = (height - level - 1);
+        for (int row = 0; row < base - level * 2; ++row)
+        {
+            ResourceIndex transformBuffer;
+            bool result = CreateTransformBuffer(transformBuffer, renderer,
+                topLeftX + row, level + 1, topLeftZ);
+
+            if (result == false)
+                return false;
+
+            RenderObject toStore;
+            toStore.Initialise(transformBuffer, cubeMesh, stoneProperties);
+            toStoreIn.push_back(toStore);
+
+            result = CreateTransformBuffer(transformBuffer, renderer,
+                topLeftX + row, level + 1, -topLeftZ);
+
+            if (result == false)
+                return false;
+
+            toStore.Initialise(transformBuffer, cubeMesh, stoneProperties);
+            toStoreIn.push_back(toStore);
+        }
+
+        for (int column = 1; column < base - level * 2 - 1; ++column)
+        {
+            ResourceIndex transformBuffer;
+            bool result = CreateTransformBuffer(transformBuffer, renderer,
+                topLeftX, level + 1, topLeftZ - column);
+
+            if (result == false)
+                return false;
+
+            RenderObject toStore;
+            toStore.Initialise(transformBuffer, cubeMesh, stoneProperties);
+            toStoreIn.push_back(toStore);
+
+            result = CreateTransformBuffer(transformBuffer, renderer,
+                -topLeftX, level + 1, topLeftZ - column);
+
+            if (result == false)
+                return false;
+
+            toStore.Initialise(transformBuffer, cubeMesh, stoneProperties);
+            toStoreIn.push_back(toStore);
+        }
+    }
+
+    ResourceIndex transformBuffer;
+    bool result = CreateTransformBuffer(transformBuffer, renderer,
+        0, height, 0);
+
+    if (result == false)
+        return false;
+
+    RenderObject toStore;
+    toStore.Initialise(transformBuffer, cubeMesh, stoneProperties);
+    toStoreIn.push_back(toStore);
+
+    return true;
+}
+
+bool PlaceGround(const Mesh& cubeMesh, const SurfaceProperty& grassProperties,
+    std::vector<RenderObject>& toStoreIn, Renderer* renderer, int height)
+{
+    height += 2;
+    int base = (height - 1) * 2 + 1;
+
+    for (int level = 0; level < height - 1; ++level)
+    {
+        int topLeftX = -(height - level - 1);
+        int topLeftZ = (height - level - 1);
+
+        for (int column = 0; column < base - level * 2; ++column)
+        {
+            for (int row = 0; row < base - level * 2; ++row)
+            {
+                ResourceIndex transformBuffer;
+                bool result = CreateTransformBuffer(transformBuffer, renderer,
+                    topLeftX + column, 0, topLeftZ - row);
+
+                if (result == false)
+                    return false;
+
+                RenderObject toStore;
+                toStore.Initialise(transformBuffer, cubeMesh, grassProperties);
+                toStoreIn.push_back(toStore);
+            }
+        }
+    }
+
+    return true;
+}
+
+bool PlaceBlocks(std::vector<RenderObject>& toStoreIn, Renderer* renderer, int height)
+{
+    Mesh cubeMesh;
+    if (!CreateCubeMesh(cubeMesh, renderer))
+        return -1;
+
+    SurfaceProperty stoneProperties;
+    if (!LoadSurfacePropertyFiles(stoneProperties, renderer, "Stone"))
+        return -1;
+
+    SurfaceProperty grassProperties;
+    if (!LoadSurfacePropertyFiles(grassProperties, renderer, "Grass"))
+        return -1;
+
+    return PlacePyramid(cubeMesh, stoneProperties, toStoreIn, renderer, height)
+        && PlaceGround(cubeMesh, grassProperties, toStoreIn, renderer, height);
+}
+
+int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR    lpCmdLine,
+	_In_ int       nCmdShow)
+{
+    const unsigned int WINDOW_WIDTH = 1280;
+    const unsigned int WINDOW_HEIGHT = 720;
+    HWND windowHandle = InitialiseWindow(hInstance, 
+        WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    Renderer* renderer = new RendererD3D11(windowHandle);
+    GraphicsRenderPass* standardPass = CreateStandardRenderPass(renderer);
+
+    const int DIMENSION = 5;
+    std::vector<RenderObject> renderObjects;
+    if (!PlaceBlocks(renderObjects, renderer, DIMENSION))
+        return -1;
+
+    Camera* camera = renderer->CreateCamera(0.1f, 20.0f,
+        static_cast<float>(WINDOW_WIDTH) / WINDOW_HEIGHT);
+    camera->MoveForward(-DIMENSION);
+    camera->MoveUp(1);
+
+    ResourceIndex lightBufferIndex;
+    if (!CreateLights(lightBufferIndex, renderer, DIMENSION * 2.5f))
+        return -1;
+
+    renderer->SetLightBuffer(lightBufferIndex);
+
+    MSG msg = { };
+
+    float deltaTime = 0.0f;
+    float moveSpeed = 2.0f;
+    float turnSpeed = 3.14f / 2;
+    auto lastFrameEnd = std::chrono::system_clock::now();
+
+    while (!globalInputs.quitKey && msg.message != WM_QUIT)
+    {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        else
+        {
+            
+            TransformCamera(camera, moveSpeed, turnSpeed, deltaTime);
+
+            renderer->PreRender();
+
+            renderer->SetCamera(camera);
+            renderer->SetRenderPass(standardPass);
+            renderer->Render(renderObjects);
+
+            renderer->Present();
+            auto currentFrameEnd = std::chrono::system_clock::now();
+            auto elapsed = std::chrono::duration_cast<
+                std::chrono::microseconds>(currentFrameEnd - lastFrameEnd).count();
+            deltaTime = elapsed / 1000000.0f;
+            lastFrameEnd = currentFrameEnd;
+        }
+
+    }
+
+    renderer->DestroyGraphicsRenderPass(standardPass);
+    delete renderer;
+    return 0;
+}

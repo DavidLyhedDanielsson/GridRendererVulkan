@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="RasterizerAPI">
+      <UniqueIdentifier>{5d7c8a3b-d045-4469-9906-3b5fd9694e49}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D11Rasterizer">
+      <UniqueIdentifier>{cf16dc59-a930-468c-92e9-f3e69e01d0c7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>RasterizerAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderObject.cpp">
+      <Filter>RasterizerAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="SurfaceProperty.cpp">
+      <Filter>RasterizerAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="BufferManagerD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManagerD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphicsRenderPassD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+    <ClCompile Include="RendererD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+    <ClCompile Include="SamplerManagerD3D11.cpp">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Mesh.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="SurfaceProperty.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="BufferManager.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManager.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="ResourceManager.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderObject.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsRenderPass.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="BufferManagerD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManagerD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsRenderPassD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="RendererD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="SamplerManager.h">
+      <Filter>RasterizerAPI</Filter>
+    </ClInclude>
+    <ClInclude Include="SamplerManagerD3D11.h">
+      <Filter>D3D11Rasterizer</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="StandardVS.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="StandardPS.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>
