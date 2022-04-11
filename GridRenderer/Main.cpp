@@ -8,6 +8,7 @@
 #include "stb_image.h"
 
 #include "D3D11/RendererD3D11.h"
+#include "Vulkan/RendererVulkan.h"
 
 struct Inputs
 {

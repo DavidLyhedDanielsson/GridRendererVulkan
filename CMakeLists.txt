@@ -64,7 +64,11 @@ set(D3D11_SRC_FILES
         TextureManagerD3D11.cpp)
 list(TRANSFORM D3D11_SRC_FILES PREPEND ${SRC_ROOT_DIR}D3D11/)
 
-add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES})
+set(VULKAN_SRC_FILES
+        RendererVulkan.cpp)
+list(TRANSFORM VULKAN_SRC_FILES PREPEND ${SRC_ROOT_DIR}Vulkan/)
+
+add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES} ${VULKAN_SRC_FILES})
 add_dependencies(GridRenderer shaders)
 
 target_link_libraries(GridRenderer PRIVATE SDL2::SDL2 SDL2::SDL2main d3d11.lib d3dcompiler.lib)
