@@ -3,7 +3,7 @@
 #include <d3d11_4.h>
 #include <array>
 
-#include "GraphicsRenderPass.h"
+#include "../GraphicsRenderPass.h"
 
 class GraphicsRenderPassD3D11 : public GraphicsRenderPass
 {

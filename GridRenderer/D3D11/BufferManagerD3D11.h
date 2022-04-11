@@ -4,7 +4,7 @@
 
 #include <d3d11_4.h>
 
-#include "BufferManager.h"
+#include "../BufferManager.h"
 
 class BufferManagerD3D11 : public BufferManager
 {

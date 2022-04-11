@@ -4,7 +4,7 @@
 
 #include <d3d11_4.h>
 
-#include "SamplerManager.h"
+#include "../SamplerManager.h"
 
 class SamplerManagerD3D11 : public SamplerManager
 {

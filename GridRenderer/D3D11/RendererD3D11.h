@@ -3,7 +3,7 @@
 #include <d3d11_4.h>
 #include <dxgi1_6.h>
 
-#include "Renderer.h"
+#include "../Renderer.h"
 #include "GraphicsRenderPassD3D11.h"
 #include "BufferManagerD3D11.h"
 #include "TextureManagerD3D11.h"

@@ -7,7 +7,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "RendererD3D11.h"
+#include "D3D11/RendererD3D11.h"
 
 struct Inputs
 {

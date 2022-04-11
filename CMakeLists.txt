@@ -62,7 +62,7 @@ set(D3D11_SRC_FILES
         RendererD3D11.cpp
         SamplerManagerD3D11.cpp
         TextureManagerD3D11.cpp)
-list(TRANSFORM D3D11_SRC_FILES PREPEND ${SRC_ROOT_DIR})
+list(TRANSFORM D3D11_SRC_FILES PREPEND ${SRC_ROOT_DIR}D3D11/)
 
 add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES})
 add_dependencies(GridRenderer shaders)

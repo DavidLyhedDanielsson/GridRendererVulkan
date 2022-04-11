@@ -3,7 +3,7 @@
 #include <DirectXMath.h>
 #include <d3d11_4.h>
 
-#include "Camera.h"
+#include "../Camera.h"
 #include "BufferManagerD3D11.h"
 
 class CameraD3D11 : public Camera
