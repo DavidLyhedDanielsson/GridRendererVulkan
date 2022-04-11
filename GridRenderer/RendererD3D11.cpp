@@ -1,10 +1,16 @@
 #include "RendererD3D11.h"
 
 #include <stdexcept>
+#include <SDL2/SDL_syswm.h>
 
-void RendererD3D11::CreateBasicInterfaces(HWND windowHandle)
+void RendererD3D11::CreateBasicInterfaces(SDL_Window* window)
 {
 	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+
+	SDL_SysWMinfo sysInfo;
+	SDL_VERSION(&sysInfo.version);
+	SDL_GetWindowWMInfo(window, &sysInfo);
+
 
 	swapChainDesc.BufferDesc.Width = 0;
 	swapChainDesc.BufferDesc.Height = 0;
@@ -17,7 +23,7 @@ void RendererD3D11::CreateBasicInterfaces(HWND windowHandle)
 	swapChainDesc.SampleDesc.Quality = 0;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = 1;
-	swapChainDesc.OutputWindow = windowHandle;
+	swapChainDesc.OutputWindow = sysInfo.info.win.window;
 	swapChainDesc.Windowed = true;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 	swapChainDesc.Flags = 0;
@@ -234,7 +240,7 @@ void RendererD3D11::HandleBinding(const PipelineBinding& binding)
 	}
 }
 
-RendererD3D11::RendererD3D11(HWND windowHandle)
+RendererD3D11::RendererD3D11(SDL_Window* windowHandle)
 {
 	CreateBasicInterfaces(windowHandle);
 	CreateRenderTargetView();

@@ -10,6 +10,8 @@
 #include "SamplerManagerD3D11.h"
 #include "CameraD3D11.h"
 
+#include <SDL2/SDL_video.h>
+
 class RendererD3D11 : public Renderer
 {
 private:
@@ -32,7 +34,7 @@ private:
 	CameraD3D11* currentCamera = nullptr;
 	ResourceIndex lightBufferIndex = ResourceIndex(-1);
 
-	void CreateBasicInterfaces(HWND windowHandle);
+	void CreateBasicInterfaces(SDL_Window* windowHandle);
 	void CreateRenderTargetView();
 	void CreateDepthStencil();
 	void CreateViewport();
@@ -55,7 +57,7 @@ private:
 	void HandleBinding(const PipelineBinding& binding);
 
 public:
-	RendererD3D11(HWND windowHandle);
+	RendererD3D11(SDL_Window* windowHandle);
 	virtual ~RendererD3D11();
 	RendererD3D11(const RendererD3D11& other) = delete;
 	RendererD3D11& operator=(const RendererD3D11& other) = delete;

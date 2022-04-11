@@ -1,8 +1,8 @@
 #include <stdexcept>
-#include <Windows.h>
 #include <string>
 #include <vector>
 #include <chrono>
+#include <SDL2/SDL.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -37,99 +37,52 @@ struct PointLight
     float colour[3] = { 1.0f, 1.0f, 1.0f };
 };
 
-void HandleKeyEvent(WPARAM wParam, bool value)
+void HandleKeyEvent(SDL_Keysym sym, bool value)
 {
-    switch (wParam)
+    switch (sym.sym)
     {
-    case 0x41:
+    case SDLK_a:
         globalInputs.moveLeftPushed = value;
         break;
-    case 0x44:
+    case SDLK_d:
         globalInputs.moveRightPushed = value;
         break;
-    case 0x57:
+    case SDLK_w:
         globalInputs.moveForwardPushed = value;
         break;
-    case 0x53:
+    case SDLK_s:
         globalInputs.moveBackwardsPushed = value;
         break;
-    case VK_SHIFT:
+    case SDLK_LSHIFT:
         globalInputs.moveUpPushed = value;
         break;
-    case VK_CONTROL:
+    case SDLK_LCTRL:
         globalInputs.moveDownPushed = value;
         break;
-    case VK_ESCAPE:
+    case SDLK_ESCAPE:
         globalInputs.quitKey = value;
         break;
-    case 0x51:
+    case SDLK_q:
         globalInputs.turnLeftPushed = value;
         break;
-    case 0x45:
+    case SDLK_e:
         globalInputs.turnRightPushed = value;
         break;
     }
 }
 
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    // sort through and find what code to run for the message given
-    switch (message)
-    {
-        // this message is read when the window is closed
-    case WM_DESTROY:
-    {
-        // close the application entirely
-        PostQuitMessage(0);
-        return 0;
-    } break;
-
-    case WM_KEYDOWN:
-    {
-        HandleKeyEvent(wParam, true);
-    } break;
-
-    case WM_KEYUP:
-    {
-        HandleKeyEvent(wParam, false);
-    } break;
-    }
-
-    // Handle any messages the switch statement didn't
-    return DefWindowProc(hWnd, message, wParam, lParam);
-}
-
-HWND InitialiseWindow(HINSTANCE hInstance, unsigned int windowWidth,
+SDL_Window* InitialiseWindow(unsigned int windowWidth,
     unsigned int windowHeight, bool windowed = true)
 {
-    const wchar_t CLASS_NAME[] = L"Test Window Class";
-
-    WNDCLASS wc = { };
-
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = CLASS_NAME;
-
-    RegisterClass(&wc);
-
-    DWORD windowStyle = windowed ? WS_OVERLAPPEDWINDOW : WS_EX_TOPMOST | WS_POPUP;
-    RECT rt = { 0, 0, static_cast<LONG>(windowWidth),
-        static_cast<LONG>(windowHeight) };
-    AdjustWindowRect(&rt, windowStyle, FALSE);
-
-    HWND hWnd = CreateWindowEx(0, CLASS_NAME, L"Grid renderer", windowStyle,
-        0, 0, rt.right - rt.left, rt.bottom - rt.top, nullptr, nullptr,
-        hInstance, nullptr);
-
-    if (hWnd == nullptr)
-    {
-        DWORD errorCode = GetLastError();
-        throw std::runtime_error("Could not create window, last error: " +
-            std::to_string(errorCode));
+    int windowFlags = SDL_WINDOW_SHOWN;
+    if (!windowed) {
+        windowFlags |= SDL_WINDOW_FULLSCREEN;
     }
 
-    ShowWindow(hWnd, windowed ? SW_SHOWNORMAL : SW_SHOWMAXIMIZED);
-    return hWnd;
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window* window = SDL_CreateWindow("Grid Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, windowFlags);
+
+    return window;
 }
 
 GraphicsRenderPass* CreateStandardRenderPass(Renderer* renderer)
@@ -536,15 +489,10 @@ bool PlaceBlocks(std::vector<RenderObject>& toStoreIn, Renderer* renderer, int h
         && PlaceGround(cubeMesh, grassProperties, toStoreIn, renderer, height);
 }
 
-int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-	_In_opt_ HINSTANCE hPrevInstance,
-	_In_ LPWSTR    lpCmdLine,
-	_In_ int       nCmdShow)
-{
+int main(int argc, char* argv[]) {
     const unsigned int WINDOW_WIDTH = 1280;
     const unsigned int WINDOW_HEIGHT = 720;
-    HWND windowHandle = InitialiseWindow(hInstance, 
-        WINDOW_WIDTH, WINDOW_HEIGHT);
+    SDL_Window* windowHandle = InitialiseWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     Renderer* renderer = new RendererD3D11(windowHandle);
     GraphicsRenderPass* standardPass = CreateStandardRenderPass(renderer);
@@ -565,23 +513,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     renderer->SetLightBuffer(lightBufferIndex);
 
-    MSG msg = { };
-
     float deltaTime = 0.0f;
     float moveSpeed = 2.0f;
     float turnSpeed = 3.14f / 2;
     auto lastFrameEnd = std::chrono::system_clock::now();
 
-    while (!globalInputs.quitKey && msg.message != WM_QUIT)
+    SDL_Event event;
+    bool run = true;
+    while (!globalInputs.quitKey && run)
     {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        if (SDL_PollEvent(&event))
         {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            switch (event.type) {
+            case SDL_QUIT:
+                run = false;
+                break;
+            case SDL_KEYDOWN:
+                HandleKeyEvent(event.key.keysym, true);
+                break;
+            case SDL_KEYUP:
+                HandleKeyEvent(event.key.keysym, false);
+                break;
+            default:
+                break;
+            }
         }
         else
         {
-            
+
             TransformCamera(camera, moveSpeed, turnSpeed, deltaTime);
 
             renderer->PreRender();
@@ -602,5 +561,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     renderer->DestroyGraphicsRenderPass(standardPass);
     delete renderer;
+    SDL_Quit();
+
     return 0;
 }
