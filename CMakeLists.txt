@@ -88,6 +88,14 @@ else ()
 endif ()
 
 add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES} ${VULKAN_SRC_FILES})
+
+# https://stackoverflow.com/questions/2368811/how-to-set-warning-level-in-cmake
+if (MSVC)
+    target_compile_options(GridRenderer PRIVATE /W4 /WX)
+else ()
+    target_compile_options(GridRenderer PRIVATE -Wall -Wextra -Wpedantic)
+endif ()
+
 if (RENDER_BACKEND STREQUAL "D3D11")
     set(LINK_LIBRARIES d3d11.lib d3dcompiler.lib)
 
