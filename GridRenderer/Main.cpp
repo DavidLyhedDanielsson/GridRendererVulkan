@@ -180,7 +180,7 @@ bool CreateTriangleMesh(Mesh& mesh, Renderer* renderer)
     };
 
     ResourceIndex verticesIndex = renderer->GetBufferManager()->AddBuffer(
-        vertices, sizeof(SimpleVertex), ARRAYSIZE(vertices),
+        vertices, sizeof(SimpleVertex), std::size(vertices),
         PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
         BufferBinding::STRUCTURED_BUFFER);
 
@@ -190,7 +190,7 @@ bool CreateTriangleMesh(Mesh& mesh, Renderer* renderer)
     unsigned int indices[] = {0, 1, 2};
 
     ResourceIndex indicesIndex = renderer->GetBufferManager()->AddBuffer(
-        indices, sizeof(unsigned int), ARRAYSIZE(indices), 
+        indices, sizeof(unsigned int), std::size(indices),
         PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
         BufferBinding::STRUCTURED_BUFFER);
 
@@ -240,7 +240,7 @@ bool CreateCubeMesh(Mesh& mesh, Renderer* renderer)
     };
 
     ResourceIndex verticesIndex = renderer->GetBufferManager()->AddBuffer(
-        vertices, sizeof(SimpleVertex), ARRAYSIZE(vertices), 
+        vertices, sizeof(SimpleVertex), std::size(vertices),
         PerFrameWritePattern::NEVER, PerFrameWritePattern::NEVER,
         BufferBinding::STRUCTURED_BUFFER);
 
