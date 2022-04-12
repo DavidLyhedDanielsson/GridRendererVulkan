@@ -23,6 +23,8 @@ add_compile_definitions(
 # Dependencies
 if (RENDER_BACKEND STREQUAL "D3D11")
     find_program(FXC fxc REQUIRED)
+elseif (RENDER_BACKEND STREQUAL "VULKAN")
+    find_package(Vulkan REQUIRED)
 endif ()
 find_package(SDL2 CONFIG REQUIRED)
 
@@ -91,8 +93,17 @@ if (RENDER_BACKEND STREQUAL "D3D11")
 
     # No "shaders" target for vulkan yet
     add_dependencies(GridRenderer shaders)
-else ()
-    set(LINK_LIBRARIES)
+elseif (RENDER_BACKEND STREQUAL "VULKAN")
+    set(LINK_LIBRARIES ${Vulkan_LIBRARIES})
+
+    target_include_directories(GridRenderer PRIVATE ${Vulkan_INCLUDE_DIRS})
+    target_compile_definitions(GridRenderer PRIVATE
+            VULKAN_HPP_NO_CONSTRUCTORS # Prefer designated initializers over constructors
+            # The code base uses exceptions, but if not using exceptions this should be defined
+            # VULKAN_HPP_NO_EXCEPTIONS
+            # This might be needed to enable resizing
+            # VULKAN_HPP_ASSERT_ON_RESULT=\(void\)
+            )
 endif ()
 
 target_link_libraries(GridRenderer PRIVATE SDL2::SDL2 SDL2::SDL2main ${LINK_LIBRARIES})
