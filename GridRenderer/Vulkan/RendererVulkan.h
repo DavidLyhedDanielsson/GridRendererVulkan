@@ -3,9 +3,24 @@
 #include "../Renderer.h"
 
 #include <SDL2/SDL_video.h>
+// vulkan.hpp: https://github.com/KhronosGroup/Vulkan-Hpp
+// Layer over vulkan to turn its C api into a more C++-like api.
+// Vulkan functions have the same name, except that the vkXXX is now vk:XXX and some functions now
+// belong to an instance e.g. vkEnumeratePhysicalDevices -> vk::Instance->enumeratePhysicalDevices
+
+// vulkan_raii.hpp also includes smart (unique) pointers for vulkan types
+#include <vulkan/vulkan_raii.hpp>
 
 class RendererVulkan: public Renderer
 {
+  private:
+    vk::UniqueInstance instance;
+    vk::UniqueDebugUtilsMessengerEXT debugCallback;
+    vk::UniqueSurfaceKHR surface;
+
+    uint32_t graphicsQueueIndex;
+    vk::UniqueDevice device;
+
   public:
     RendererVulkan(SDL_Window* windowHandle);
     ~RendererVulkan() = default;

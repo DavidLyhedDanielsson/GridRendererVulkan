@@ -82,6 +82,9 @@ SDL_Window* InitialiseWindow(unsigned int windowWidth,
     if (!windowed) {
         windowFlags |= SDL_WINDOW_FULLSCREEN;
     }
+#ifdef USE_VULKAN
+  windowFlags |= SDL_WINDOW_VULKAN;
+#endif
 
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window* window = SDL_CreateWindow("Grid Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, windowFlags);
