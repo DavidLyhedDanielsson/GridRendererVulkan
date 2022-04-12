@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 typedef size_t ResourceIndex;
 
 class ResourceManager
