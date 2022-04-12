@@ -4,22 +4,21 @@
 
 #include <SDL2/SDL_video.h>
 
-class RendererVulkan : public Renderer
+class RendererVulkan: public Renderer
 {
-public:
-	RendererVulkan(SDL_Window* windowHandle);
-	~RendererVulkan() = default;
-	RendererVulkan(const RendererVulkan& other) = delete;
-	RendererVulkan& operator=(const RendererVulkan& other) = delete;
-	RendererVulkan(RendererVulkan&& other) = default;
-	RendererVulkan& operator=(RendererVulkan&& other) = default;
+  public:
+    RendererVulkan(SDL_Window* windowHandle);
+    ~RendererVulkan() = default;
+    RendererVulkan(const RendererVulkan& other) = delete;
+    RendererVulkan& operator=(const RendererVulkan& other) = delete;
+    RendererVulkan(RendererVulkan&& other) = default;
+    RendererVulkan& operator=(RendererVulkan&& other) = default;
 
     GraphicsRenderPass* CreateGraphicsRenderPass(
-            const GraphicsRenderPassInfo& intialisationInfo) override;
+        const GraphicsRenderPassInfo& intialisationInfo) override;
     void DestroyGraphicsRenderPass(GraphicsRenderPass* pass) override;
 
-    Camera* CreateCamera(float minDepth, float maxDepth,
-                                 float aspectRatio) override;
+    Camera* CreateCamera(float minDepth, float maxDepth, float aspectRatio) override;
     void DestroyCamera(Camera* camera) override;
 
     BufferManager* GetBufferManager() override;
