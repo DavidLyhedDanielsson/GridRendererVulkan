@@ -268,6 +268,8 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
     this->device = std::move(device);
     this->graphicsQueueIndex = graphicsQueueIndex;
     this->renderPass = createRenderPass(device);
+
+    this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
@@ -297,7 +299,8 @@ TextureManager* RendererVulkan::GetTextureManager()
 
 SamplerManager* RendererVulkan::GetSamplerManager()
 {
-    return nullptr;
+    // There's no need to make sure this is valid since the constructor sets it up
+    return samplerManager.get();
 }
 
 void RendererVulkan::SetRenderPass(GraphicsRenderPass* toSet) {}

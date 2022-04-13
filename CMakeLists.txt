@@ -83,7 +83,8 @@ if (RENDER_BACKEND STREQUAL "D3D11")
     list(TRANSFORM D3D11_SRC_FILES PREPEND ${SRC_ROOT_DIR}D3D11/)
 else ()
     set(VULKAN_SRC_FILES
-            RendererVulkan.cpp)
+            RendererVulkan.cpp
+            SamplerManagerVulkan.cpp)
     list(TRANSFORM VULKAN_SRC_FILES PREPEND ${SRC_ROOT_DIR}Vulkan/)
 endif ()
 
