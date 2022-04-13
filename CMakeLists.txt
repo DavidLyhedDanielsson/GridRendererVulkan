@@ -91,7 +91,7 @@ add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES} ${VULKAN_SRC_FILES})
 
 # https://stackoverflow.com/questions/2368811/how-to-set-warning-level-in-cmake
 if (MSVC)
-    target_compile_options(GridRenderer PRIVATE /W4 /WX)
+    target_compile_options(GridRenderer PRIVATE /W4)
 else ()
     target_compile_options(GridRenderer PRIVATE -Wall -Wextra -Wpedantic)
 endif ()
