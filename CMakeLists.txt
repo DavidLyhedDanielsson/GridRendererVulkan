@@ -47,7 +47,7 @@ if (RENDER_BACKEND STREQUAL "D3D11")
         endif ()
 
         set(OUT_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${OUT_NAME}.cso)
-        set(COMPILE_COMMAND ${FXC} ${FXC_DEBUG_FLAGS} /T ${SHADER_TYPE}_5_0 /Fo ${OUT_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/GridRenderer/${SHADER_FILE})
+        set(COMPILE_COMMAND ${FXC} ${FXC_DEBUG_FLAGS} /T ${SHADER_TYPE}_5_0 /Fo ${OUT_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/GridRenderer/D3D11/${SHADER_FILE})
         message(${COMPILE_COMMAND})
 
         add_custom_command(
