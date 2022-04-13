@@ -17,9 +17,10 @@ class RendererVulkan: public Renderer
     vk::UniqueInstance instance;
     vk::UniqueDebugUtilsMessengerEXT debugCallback;
     vk::UniqueSurfaceKHR surface;
-
     uint32_t graphicsQueueIndex;
     vk::UniqueDevice device;
+
+    vk::UniqueRenderPass renderPass;
 
   public:
     RendererVulkan(SDL_Window* windowHandle);

@@ -199,6 +199,60 @@ DeviceInfo createDevice(const vk::UniqueInstance& instance, const vk::UniqueSurf
     };
 }
 
+vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
+{
+    vk::AttachmentDescription attachment = {
+        .format = vk::Format::eB8G8R8A8Srgb,
+        .samples = vk::SampleCountFlagBits::e1,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .stencilLoadOp =
+            vk::AttachmentLoadOp::eDontCare, // Not use since format does not define stencil
+        .stencilStoreOp =
+            vk::AttachmentStoreOp::eDontCare, // Not use since format does not define stencil
+        .initialLayout = vk::ImageLayout::eUndefined,
+        .finalLayout = vk::ImageLayout::ePresentSrcKHR,
+    };
+
+    vk::AttachmentReference backbufferAttachment = {
+        .attachment = 0,
+        .layout = vk::ImageLayout::eColorAttachmentOptimal,
+    };
+
+    vk::SubpassDescription subpass = {
+        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = nullptr,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &backbufferAttachment,
+        .pResolveAttachments = nullptr,
+        .pDepthStencilAttachment = nullptr,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = nullptr,
+    };
+
+    vk::SubpassDependency dependency = {
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        .srcAccessMask = vk::AccessFlagBits::eNone,
+        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+        .dependencyFlags = vk::DependencyFlags(),
+    };
+
+    vk::RenderPassCreateInfo renderPassInfo = {
+        .attachmentCount = 1,
+        .pAttachments = &attachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &dependency,
+    };
+
+    return device->createRenderPassUnique(renderPassInfo);
+}
+
 RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
@@ -213,6 +267,7 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
     auto [device, graphicsQueueIndex] = createDevice(instance, surface);
     this->device = std::move(device);
     this->graphicsQueueIndex = graphicsQueueIndex;
+    this->renderPass = createRenderPass(device);
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
