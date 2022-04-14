@@ -520,7 +520,10 @@ void RendererVulkan::DestroyGraphicsRenderPass(GraphicsRenderPass* pass) {}
 
 Camera* RendererVulkan::CreateCamera(float minDepth, float maxDepth, float aspectRatio)
 {
-    return nullptr;
+    assert(!this->cameraOpt);
+    this->cameraOpt = CameraVulkan(*bufferManager, minDepth, maxDepth, aspectRatio);
+    // The &* syntax is the best
+    return &*this->cameraOpt;
 }
 
 void RendererVulkan::DestroyCamera(Camera* camera) {}

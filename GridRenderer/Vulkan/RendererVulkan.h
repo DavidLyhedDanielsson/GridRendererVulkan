@@ -12,8 +12,10 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include <memory>
+#include <optional>
 
 #include "BufferManagerVulkan.h"
+#include "CameraVulkan.h"
 #include "GraphicsRenderPassVulkan.h"
 #include "SamplerManagerVulkan.h"
 #include "TextureManagerVulkan.h"
@@ -32,6 +34,8 @@ class RendererVulkan: public Renderer
     vk::UniqueDescriptorSetLayout descriptorSetLayout;
     vk::UniquePipelineLayout pipelineLayout;
     vk::UniquePipeline pipeline;
+
+    std::optional<CameraVulkan> cameraOpt;
 
     // Use dynamic memory so that the sampler manager can be initialized with a reference to
     // this->device

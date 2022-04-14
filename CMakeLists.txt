@@ -119,7 +119,8 @@ else ()
             GraphicsRenderPassVulkan.cpp
             BufferManagerVulkan.cpp
             TextureManagerVulkan.cpp
-            FileUtils.cpp)
+            FileUtils.cpp
+            CameraVulkan.cpp)
     list(TRANSFORM VULKAN_SRC_FILES PREPEND ${SRC_ROOT_DIR}Vulkan/)
 endif ()
 
