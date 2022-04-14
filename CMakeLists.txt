@@ -116,7 +116,8 @@ else ()
     set(VULKAN_SRC_FILES
             RendererVulkan.cpp
             SamplerManagerVulkan.cpp
-            GraphicsRenderPassVulkan.cpp)
+            GraphicsRenderPassVulkan.cpp
+            FileUtils.cpp)
     list(TRANSFORM VULKAN_SRC_FILES PREPEND ${SRC_ROOT_DIR}Vulkan/)
 endif ()
 

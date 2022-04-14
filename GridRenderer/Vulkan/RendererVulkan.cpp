@@ -8,6 +8,7 @@
 #include <SDL2/SDL_video.h>
 #include <SDL2/SDL_vulkan.h>
 
+#include "FileUtils.h"
 #include "StlHelpers/EntireCollection.h"
 
 // Small macro to avoid typos when typing the function name
@@ -472,14 +473,36 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     const GraphicsRenderPassInfo& initialisationInfo)
 {
-    vk::UniqueShaderModule a;
-    vk::UniqueShaderModule b;
+    // Inner scopes prevents polluting function with random variables
+    {
+        auto vsDataOpt = FileUtils::readFile(initialisationInfo.vsPath);
+        assert(vsDataOpt.has_value());
+        auto vsData = vsDataOpt.value();
+        // SPIR-V specifies 32-bit words, so cast vsData.data()
+        shaderModules.push_back(device->createShaderModuleUnique(
+            {.codeSize = vsData.size(), .pCode = (uint32_t*)vsData.data()}));
+    }
+
+    {
+        // Note: called "fragment" from now on
+        auto fsDataOpt = FileUtils::readFile(initialisationInfo.psPath);
+        assert(fsDataOpt.has_value());
+        auto fsData = fsDataOpt.value();
+        shaderModules.push_back(device->createShaderModuleUnique(
+            {.codeSize = fsData.size(), .pCode = (uint32_t*)fsData.data()}));
+    }
+
+    auto& vsModule = *(shaderModules.end() - 2);
+    auto& fsModule = *(shaderModules.end() - 1);
 
     std::tie(this->pipeline, this->descriptorSetLayout, this->pipelineLayout) =
-        createPipeline(this->device, this->renderPass, a, b);
+        createPipeline(this->device, this->renderPass, vsModule, fsModule);
 
-    this->renderPasses.push_back(GraphicsRenderPassVulkan(initialisationInfo));
-
+    this->renderPasses.push_back(GraphicsRenderPassVulkan(
+        vsModule,
+        fsModule,
+        initialisationInfo.objectBindings,
+        initialisationInfo.globalBindings));
     return &this->renderPasses.back();
 }
 

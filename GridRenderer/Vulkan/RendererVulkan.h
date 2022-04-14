@@ -35,6 +35,7 @@ class RendererVulkan: public Renderer
     std::unique_ptr<SamplerManagerVulkan> samplerManager;
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
+    std::vector<vk::UniqueShaderModule> shaderModules;
 
   public:
     RendererVulkan(SDL_Window* windowHandle);
