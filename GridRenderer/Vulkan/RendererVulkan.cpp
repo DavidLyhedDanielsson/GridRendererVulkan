@@ -477,6 +477,7 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
 
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
     this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
+    this->textureManager = std::make_unique<TextureManagerVulkan>();
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
@@ -532,7 +533,8 @@ BufferManager* RendererVulkan::GetBufferManager()
 
 TextureManager* RendererVulkan::GetTextureManager()
 {
-    return nullptr;
+    // There's no need to make sure this is valid since the constructor sets it up
+    return textureManager.get();
 }
 
 SamplerManager* RendererVulkan::GetSamplerManager()

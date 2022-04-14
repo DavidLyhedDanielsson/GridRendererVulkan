@@ -16,6 +16,7 @@
 #include "BufferManagerVulkan.h"
 #include "GraphicsRenderPassVulkan.h"
 #include "SamplerManagerVulkan.h"
+#include "TextureManagerVulkan.h"
 
 class RendererVulkan: public Renderer
 {
@@ -36,6 +37,7 @@ class RendererVulkan: public Renderer
     // this->device
     std::unique_ptr<SamplerManagerVulkan> samplerManager;
     std::unique_ptr<BufferManagerVulkan> bufferManager;
+    std::unique_ptr<TextureManagerVulkan> textureManager;
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
     std::vector<vk::UniqueShaderModule> shaderModules;
