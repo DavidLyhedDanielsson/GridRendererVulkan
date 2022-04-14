@@ -11,6 +11,9 @@
 // vulkan_raii.hpp also includes smart (unique) pointers for vulkan types
 #include <vulkan/vulkan_raii.hpp>
 
+#include <memory>
+
+#include "GraphicsRenderPassVulkan.h"
 #include "SamplerManagerVulkan.h"
 
 class RendererVulkan: public Renderer
@@ -23,10 +26,15 @@ class RendererVulkan: public Renderer
     vk::UniqueDevice device;
 
     vk::UniqueRenderPass renderPass;
+    vk::UniqueDescriptorSetLayout descriptorSetLayout;
+    vk::UniquePipelineLayout pipelineLayout;
+    vk::UniquePipeline pipeline;
 
     // Use dynamic memory so that the sampler manager can be initialized with a reference to
     // this->device
     std::unique_ptr<SamplerManagerVulkan> samplerManager;
+
+    std::vector<GraphicsRenderPassVulkan> renderPasses;
 
   public:
     RendererVulkan(SDL_Window* windowHandle);

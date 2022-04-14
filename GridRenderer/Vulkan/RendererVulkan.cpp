@@ -1,6 +1,8 @@
 #include "RendererVulkan.h"
 
+#include <array>
 #include <map>
+#include <memory>
 #include <optional>
 
 #include <SDL2/SDL_video.h>
@@ -253,6 +255,201 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
     return device->createRenderPassUnique(renderPassInfo);
 }
 
+std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipelineLayout>
+    createPipeline(
+        const vk::UniqueDevice& device,
+        const vk::UniqueRenderPass& renderPass,
+        const vk::UniqueShaderModule& vertexShader,
+        const vk::UniqueShaderModule& fragmentShader)
+{
+    vk::PipelineShaderStageCreateInfo vertexStageInfo = {
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = *vertexShader,
+        .pName = "main",
+        .pSpecializationInfo = nullptr,
+    };
+    vk::PipelineShaderStageCreateInfo fragmentStageInfo = {
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = *fragmentShader,
+        .pName = "main",
+        .pSpecializationInfo = nullptr,
+    };
+
+    vk::PipelineShaderStageCreateInfo stages[2] = {vertexStageInfo, fragmentStageInfo};
+
+    vk::VertexInputBindingDescription vertexInputBindingDesc = {
+        .binding = 0,
+        .stride = 0,
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
+
+    std::array<vk::VertexInputAttributeDescription, 3> arr = {
+        vk::VertexInputAttributeDescription{
+            .location = 0,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = 0,
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 1,
+            .binding = 0,
+            .format = vk::Format::eR32G32Sfloat,
+            .offset = sizeof(float) * 3,
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 2,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = sizeof(float) * (3 + 2),
+        },
+    };
+
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &vertexInputBindingDesc,
+        .vertexAttributeDescriptionCount = arr.size(),
+        .pVertexAttributeDescriptions = arr.data(),
+    };
+
+    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {
+        .topology = vk::PrimitiveTopology::eTriangleList,
+        .primitiveRestartEnable = false,
+    };
+
+    vk::Viewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = 800.0f, // TODO
+        .height = 600.0f, // TODO
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    vk::Rect2D scissor = {
+        .offset =
+            {
+                .x = 0,
+                .y = 0,
+            },
+        .extent =
+            {
+                .width = 800,
+                .height = 600,
+            },
+    };
+
+    vk::PipelineViewportStateCreateInfo viewportInfo = {
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+    };
+
+    vk::PipelineRasterizationStateCreateInfo rasterizeInfo = {
+        .depthClampEnable = false,
+        .rasterizerDiscardEnable = true,
+        .polygonMode = vk::PolygonMode::eFill,
+        .cullMode = vk::CullModeFlagBits::eNone,
+        .frontFace = vk::FrontFace::eClockwise,
+        .depthBiasEnable = false,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+        .lineWidth = 0.0f,
+    };
+
+    vk::PipelineMultisampleStateCreateInfo multisampleInfo = {
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+        .sampleShadingEnable = false,
+        .minSampleShading = 0.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = false,
+        .alphaToOneEnable = false,
+    };
+
+    vk::PipelineColorBlendAttachmentState blendAttachmentInfo = {
+        .blendEnable = false,
+        .srcColorBlendFactor = vk::BlendFactor::eOne,
+        .dstColorBlendFactor = vk::BlendFactor::eZero,
+        .colorBlendOp = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp = vk::BlendOp::eAdd,
+        .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
+                          | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+
+    std::array<float, 4> blendConstants = {0.0f, 0.0f, 0.0f, 0.0f};
+    vk::PipelineColorBlendStateCreateInfo blendInfo = {
+        .logicOpEnable = false,
+        .logicOp = vk::LogicOp::eNoOp,
+        .attachmentCount = 1,
+        .pAttachments = &blendAttachmentInfo,
+        .blendConstants = blendConstants,
+    };
+
+    vk::DescriptorSetLayoutBinding cameraPos = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    vk::DescriptorSetLayoutBinding viewProjection = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    vk::DescriptorSetLayoutBinding transform = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+
+    vk::DescriptorSetLayoutBinding bindings[3] = {cameraPos, viewProjection, transform};
+
+    auto descriptorSetLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 3,
+        .pBindings = bindings,
+    });
+
+    auto pipelineLayout = device->createPipelineLayoutUnique({
+        .setLayoutCount = 1,
+        .pSetLayouts = &*descriptorSetLayout,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr,
+    });
+
+    vk::GraphicsPipelineCreateInfo pipelineInfo = {
+        .stageCount = 2,
+        .pStages = stages,
+        .pVertexInputState = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssemblyInfo,
+        .pTessellationState = nullptr,
+        .pViewportState = &viewportInfo,
+        .pRasterizationState = &rasterizeInfo,
+        .pMultisampleState = &multisampleInfo,
+        .pDepthStencilState = nullptr,
+        .pColorBlendState = &blendInfo,
+        .pDynamicState = nullptr,
+        .layout = *pipelineLayout,
+        .renderPass = *renderPass,
+        .subpass = 0,
+        .basePipelineHandle = nullptr,
+        .basePipelineIndex = -1,
+    };
+    auto pipeline = device->createGraphicsPipelineUnique(VK_NULL_HANDLE, pipelineInfo);
+
+    return std::make_tuple(
+        std::move(pipeline),
+        std::move(descriptorSetLayout),
+        std::move(pipelineLayout));
+}
+
 RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
@@ -273,9 +470,17 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
-    const GraphicsRenderPassInfo& intialisationInfo)
+    const GraphicsRenderPassInfo& initialisationInfo)
 {
-    return nullptr;
+    vk::UniqueShaderModule a;
+    vk::UniqueShaderModule b;
+
+    std::tie(this->pipeline, this->descriptorSetLayout, this->pipelineLayout) =
+        createPipeline(this->device, this->renderPass, a, b);
+
+    this->renderPasses.push_back(GraphicsRenderPassVulkan(initialisationInfo));
+
+    return &this->renderPasses.back();
 }
 
 void RendererVulkan::DestroyGraphicsRenderPass(GraphicsRenderPass* pass) {}
