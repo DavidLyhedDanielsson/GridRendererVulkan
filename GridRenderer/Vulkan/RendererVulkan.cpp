@@ -1,6 +1,7 @@
 #include "RendererVulkan.h"
 
 #include <array>
+#include <iostream> // Only used for cerr in the debug callback
 #include <map>
 #include <memory>
 #include <optional>
@@ -44,7 +45,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     if(pCallbackData->messageIdNumber == 0x7cd0911d)
         return VK_FALSE;
 
-    throw std::runtime_error(std::string(pCallbackData->pMessage));
+    std::cerr << pCallbackData->pMessage << std::endl;
+    assert(false);
 }
 
 vk::UniqueInstance createInstance(std::vector<const char*> requiredExtensions)
@@ -358,7 +360,7 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
         .depthBiasConstantFactor = 0.0f,
         .depthBiasClamp = 0.0f,
         .depthBiasSlopeFactor = 0.0f,
-        .lineWidth = 0.0f,
+        .lineWidth = 1.0f,
     };
 
     vk::PipelineMultisampleStateCreateInfo multisampleInfo = {
@@ -399,14 +401,14 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
         .pImmutableSamplers = nullptr,
     };
     vk::DescriptorSetLayoutBinding viewProjection = {
-        .binding = 0,
+        .binding = 1,
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .descriptorCount = 1,
         .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
         .pImmutableSamplers = nullptr,
     };
     vk::DescriptorSetLayoutBinding transform = {
-        .binding = 0,
+        .binding = 2,
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .descriptorCount = 1,
         .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
@@ -464,9 +466,12 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
     this->instance = createInstance(sdlExtensions);
     this->debugCallback = initializeDebugCallback(instance);
     this->surface = createSurface(windowHandle, instance);
-    auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
-    this->device = std::move(device);
-    this->physicalDevice = std::move(physicalDevice);
+    {
+        // Inner scope to avoid polluting function with temporary (and potentially moved!) variables
+        auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
+        this->device = std::move(device);
+        this->physicalDevice = std::move(physicalDevice);
+    }
     this->graphicsQueueIndex = graphicsQueueIndex;
     this->renderPass = createRenderPass(device);
 
