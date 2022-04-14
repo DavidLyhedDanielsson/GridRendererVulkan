@@ -57,6 +57,12 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
 
     device->bindBufferMemory(*buffer, *memory, 0);
 
+    // TODO: Use staging buffer instead of map for immediate performance gains
+    // Don't forget to change the memory type from eHostCoherent!
+    void* dataPtr = device->mapMemory(*memory, 0, VK_WHOLE_SIZE);
+    std::memcpy(dataPtr, data, elementSize * nrOfElements);
+    device->unmapMemory(*memory);
+
     memories.push_back(std::move(memory));
     buffers.push_back(std::move(buffer));
 
