@@ -10,9 +10,13 @@ class BufferManagerVulkan: public BufferManager
 {
   private:
     const vk::UniqueDevice& device;
+    const vk::PhysicalDevice& physicalDevice;
+
+    std::vector<vk::UniqueDeviceMemory> memories;
+    std::vector<vk::UniqueBuffer> buffers;
 
   public:
-    BufferManagerVulkan(const vk::UniqueDevice& device);
+    BufferManagerVulkan(const vk::UniqueDevice& device, const vk::PhysicalDevice& physicalDevice);
     BufferManagerVulkan(const BufferManagerVulkan& other) = delete;
     BufferManagerVulkan& operator=(const BufferManagerVulkan& other) = delete;
     BufferManagerVulkan(BufferManagerVulkan&& other) = default;

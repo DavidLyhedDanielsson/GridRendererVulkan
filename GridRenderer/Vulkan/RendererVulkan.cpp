@@ -126,6 +126,7 @@ vk::UniqueSurfaceKHR createSurface(SDL_Window* handle, const vk::UniqueInstance&
 struct DeviceInfo
 {
     vk::UniqueDevice device;
+    vk::PhysicalDevice physicalDevice;
     uint32_t graphicsQueueIndex;
 };
 
@@ -198,6 +199,7 @@ DeviceInfo createDevice(const vk::UniqueInstance& instance, const vk::UniqueSurf
 
     return {
         .device = pickedPDevice.createDeviceUnique(deviceCreateInfo),
+        .physicalDevice = pickedPDevice,
         .graphicsQueueIndex = graphicsQueueIndex,
     };
 }
@@ -462,13 +464,14 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
     this->instance = createInstance(sdlExtensions);
     this->debugCallback = initializeDebugCallback(instance);
     this->surface = createSurface(windowHandle, instance);
-    auto [device, graphicsQueueIndex] = createDevice(instance, surface);
+    auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
     this->device = std::move(device);
+    this->physicalDevice = std::move(physicalDevice);
     this->graphicsQueueIndex = graphicsQueueIndex;
     this->renderPass = createRenderPass(device);
 
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
-    this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device);
+    this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(

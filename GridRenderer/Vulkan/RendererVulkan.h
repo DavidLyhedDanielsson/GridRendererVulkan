@@ -25,6 +25,7 @@ class RendererVulkan: public Renderer
     vk::UniqueSurfaceKHR surface;
     uint32_t graphicsQueueIndex;
     vk::UniqueDevice device;
+    vk::PhysicalDevice physicalDevice;
 
     vk::UniqueRenderPass renderPass;
     vk::UniqueDescriptorSetLayout descriptorSetLayout;
