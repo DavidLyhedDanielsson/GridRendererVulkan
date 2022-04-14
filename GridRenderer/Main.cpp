@@ -95,8 +95,13 @@ SDL_Window* InitialiseWindow(unsigned int windowWidth,
 GraphicsRenderPass* CreateStandardRenderPass(Renderer* renderer)
 {
     GraphicsRenderPassInfo info;
+    #ifdef USE_D3D11
     info.vsPath = SHADER_ROOT_DIR "shaders/StandardVS.cso";
     info.psPath = SHADER_ROOT_DIR "shaders/StandardPS.cso";
+    #elif USE_VULKAN
+    info.vsPath = SHADER_ROOT_DIR "shaders/Standard.vert.spv";
+    info.psPath = SHADER_ROOT_DIR "shaders/Standard.frag.spv";
+    #endif
 
     PipelineBinding vertexBinding;
     vertexBinding.dataType = PipelineDataType::VERTEX;

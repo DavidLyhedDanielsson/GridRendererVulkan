@@ -25,6 +25,10 @@ if (RENDER_BACKEND STREQUAL "D3D11")
     find_program(FXC fxc REQUIRED)
 elseif (RENDER_BACKEND STREQUAL "VULKAN")
     find_package(Vulkan REQUIRED)
+
+    if (NOT DEFINED Vulkan_GLSLC_EXECUTABLE)
+        message(FATAL_ERROR "Couldn't find glslc")
+    endif()
 endif ()
 find_package(SDL2 CONFIG REQUIRED)
 
@@ -48,6 +52,33 @@ if (RENDER_BACKEND STREQUAL "D3D11")
 
         set(OUT_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${OUT_NAME}.cso)
         set(COMPILE_COMMAND ${FXC} ${FXC_DEBUG_FLAGS} /T ${SHADER_TYPE}_5_0 /Fo ${OUT_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/GridRenderer/D3D11/${SHADER_FILE})
+        message(${COMPILE_COMMAND})
+
+        add_custom_command(
+                TARGET shaders
+                MAIN_DEPENDENCY ${OUT_PATH}
+                COMMENT "Compiling ${OUT_PATH}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders
+                COMMAND ${COMPILE_COMMAND}
+                VERBATIM
+        )
+    endforeach (SHADER_FILE)
+elseif (RENDER_BACKEND STREQUAL "VULKAN")
+    add_custom_target(shaders)
+
+    set(SHADER_SRC_FILES
+            Standard.vert
+            Standard.frag)
+
+    foreach (SHADER_FILE ${SHADER_SRC_FILES})
+        get_filename_component(OUT_NAME ${SHADER_FILE} NAME)
+
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            set(GLSLC_DEBUG_FLAGS -O0 -g)
+        endif ()
+
+        set(OUT_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${OUT_NAME}.spv)
+        set(COMPILE_COMMAND ${Vulkan_GLSLC_EXECUTABLE} ${GLSLC_DEBUG_FLAGS} ${CMAKE_CURRENT_SOURCE_DIR}/GridRenderer/Vulkan/${SHADER_FILE} -o ${OUT_PATH})
         message(${COMPILE_COMMAND})
 
         add_custom_command(
@@ -98,11 +129,10 @@ else ()
     target_compile_options(GridRenderer PRIVATE -Wall -Wextra -Wpedantic)
 endif ()
 
+add_dependencies(GridRenderer shaders)
+
 if (RENDER_BACKEND STREQUAL "D3D11")
     set(LINK_LIBRARIES d3d11.lib d3dcompiler.lib)
-
-    # No "shaders" target for vulkan yet
-    add_dependencies(GridRenderer shaders)
 elseif (RENDER_BACKEND STREQUAL "VULKAN")
     set(LINK_LIBRARIES ${Vulkan_LIBRARIES})
 
