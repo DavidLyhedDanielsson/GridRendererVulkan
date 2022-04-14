@@ -13,6 +13,7 @@
 
 #include <memory>
 
+#include "BufferManagerVulkan.h"
 #include "GraphicsRenderPassVulkan.h"
 #include "SamplerManagerVulkan.h"
 
@@ -33,6 +34,7 @@ class RendererVulkan: public Renderer
     // Use dynamic memory so that the sampler manager can be initialized with a reference to
     // this->device
     std::unique_ptr<SamplerManagerVulkan> samplerManager;
+    std::unique_ptr<BufferManagerVulkan> bufferManager;
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
     std::vector<vk::UniqueShaderModule> shaderModules;

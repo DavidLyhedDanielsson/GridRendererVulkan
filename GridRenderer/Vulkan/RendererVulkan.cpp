@@ -468,6 +468,7 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
     this->renderPass = createRenderPass(device);
 
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
+    this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device);
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
@@ -517,7 +518,8 @@ void RendererVulkan::DestroyCamera(Camera* camera) {}
 
 BufferManager* RendererVulkan::GetBufferManager()
 {
-    return nullptr;
+    // There's no need to make sure this is valid since the constructor sets it up
+    return bufferManager.get();
 }
 
 TextureManager* RendererVulkan::GetTextureManager()
