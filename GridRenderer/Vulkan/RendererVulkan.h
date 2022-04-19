@@ -46,6 +46,9 @@ class RendererVulkan: public Renderer
     vk::UniquePipelineLayout pipelineLayout;
     vk::UniquePipeline pipeline;
 
+    vk::UniqueCommandPool commandPool;
+    std::vector<vk::UniqueCommandBuffer> commandBuffers;
+
     std::optional<CameraVulkan> cameraOpt;
 
     // Use dynamic memory so that the sampler manager can be initialized with a reference to

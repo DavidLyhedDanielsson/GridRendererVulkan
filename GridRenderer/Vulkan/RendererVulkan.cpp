@@ -568,6 +568,16 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
     this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
     this->textureManager = std::make_unique<TextureManagerVulkan>();
+
+    this->commandPool = device->createCommandPoolUnique({
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsQueueIndex,
+    });
+    this->commandBuffers = device->allocateCommandBuffersUnique({
+        .commandPool = *commandPool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 3,
+    });
 }
 
 GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
@@ -654,19 +664,45 @@ void RendererVulkan::PreRender()
         VK_NULL_HANDLE);
     device->resetFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT]);
     assert(res == vk::Result::eSuccess);
+
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->reset();
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->begin(
+        {.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    vk::ClearColorValue clearColor = {std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f}};
+    vk::RenderPassBeginInfo info = {
+        .renderPass = *renderPass,
+        .framebuffer = *framebuffers[currentSwapchainImageIndex],
+        .renderArea =
+            {
+                .offset = {0, 0},
+                .extent = {1280, 720} // TODO
+            },
+        .clearValueCount = 1,
+        .pClearValues = (vk::ClearValue*)&clearColor,
+    };
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->bindPipeline(
+        vk::PipelineBindPoint::eGraphics,
+        *pipeline);
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->beginRenderPass(
+        info,
+        vk::SubpassContents::eInline);
 }
 
 void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender) {}
 
 void RendererVulkan::Present()
 {
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->endRenderPass();
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->end();
+
     vk::PipelineStageFlags waitFlags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
     vk::SubmitInfo submitInfo = {
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &*imageAvailableSemaphores[currentFrame % BACKBUFFER_COUNT],
         .pWaitDstStageMask = &waitFlags,
-        .commandBufferCount = 0,
-        .pCommandBuffers = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*commandBuffers[currentFrame % BACKBUFFER_COUNT],
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &*renderFinishedSemaphores[currentFrame % BACKBUFFER_COUNT],
     };
