@@ -47,6 +47,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
     std::cerr << pCallbackData->pMessage << std::endl;
     assert(false);
+    return false;
 }
 
 vk::UniqueInstance createInstance(std::vector<const char*> requiredExtensions)
@@ -89,7 +90,7 @@ vk::UniqueInstance createInstance(std::vector<const char*> requiredExtensions)
         .ppEnabledExtensionNames = requiredExtensions.data(),
     };
 
-    // Use structured bindings if using exceptions
+    // Use structured bindings if not using exceptions
     // auto [res, instance] = vk::createInstanceUnique
     return vk::createInstanceUnique(instanceCreateInfo);
 }
@@ -214,9 +215,9 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .stencilLoadOp =
-            vk::AttachmentLoadOp::eDontCare, // Not use since format does not define stencil
+            vk::AttachmentLoadOp::eDontCare, // Not used since format does not define stencil
         .stencilStoreOp =
-            vk::AttachmentStoreOp::eDontCare, // Not use since format does not define stencil
+            vk::AttachmentStoreOp::eDontCare, // Not used since format does not define stencil
         .initialLayout = vk::ImageLayout::eUndefined,
         .finalLayout = vk::ImageLayout::ePresentSrcKHR,
     };
@@ -324,8 +325,8 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
     vk::Viewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
-        .width = 800.0f, // TODO
-        .height = 600.0f, // TODO
+        .width = 1280.0f, // TODO
+        .height = 720.0f, // TODO
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
@@ -338,8 +339,8 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
             },
         .extent =
             {
-                .width = 800,
-                .height = 600,
+                .width = 1280, // TODO
+                .height = 720, // TODO
             },
     };
 
@@ -471,8 +472,8 @@ vk::UniqueSwapchainKHR createSwapchain(
         .imageArrayLayers = 1,
         .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
         .imageSharingMode = vk::SharingMode::eExclusive,
-        .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices = &queueFamilyIndex,
+        .queueFamilyIndexCount = 0, // Using EXCLUSIVE so this is not required
+        .pQueueFamilyIndices = nullptr,
         .preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
         .presentMode = vk::PresentModeKHR::eFifo,
