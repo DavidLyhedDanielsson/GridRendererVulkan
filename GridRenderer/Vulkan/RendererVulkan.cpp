@@ -481,6 +481,60 @@ vk::UniqueSwapchainKHR createSwapchain(
     });
 }
 
+std::tuple<std::vector<vk::UniqueFramebuffer>, std::vector<vk::UniqueImageView>> createFramebuffers(
+    const vk::UniqueDevice& device,
+    const vk::UniqueSwapchainKHR& swapchain,
+    const vk::UniqueRenderPass& renderPass)
+{
+    std::vector<vk::Image> swapchainImages = device->getSwapchainImagesKHR(*swapchain);
+    std::vector<vk::UniqueImageView> swapchainImageViews;
+    std::vector<vk::UniqueFramebuffer> framebuffers;
+    std::transform(
+        entire_collection(swapchainImages),
+        std::back_inserter(swapchainImageViews),
+        [&](const vk::Image& image) {
+            vk::ImageViewCreateInfo imageViewInfo = {
+                .image = image,
+                .viewType = vk::ImageViewType::e2D,
+                .format = vk::Format::eB8G8R8A8Srgb,
+                .components =
+                    {
+                        .r = vk::ComponentSwizzle::eIdentity,
+                        .g = vk::ComponentSwizzle::eIdentity,
+                        .b = vk::ComponentSwizzle::eIdentity,
+                        .a = vk::ComponentSwizzle::eIdentity,
+                    },
+                .subresourceRange =
+                    {
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+            };
+
+            return device->createImageViewUnique(imageViewInfo);
+        });
+    std::transform(
+        entire_collection(swapchainImageViews),
+        std::back_inserter(framebuffers),
+        [&](const vk::UniqueImageView& imageView) {
+            vk::FramebufferCreateInfo framebufferInfo = {
+                .renderPass = *renderPass,
+                .attachmentCount = 1,
+                .pAttachments = &*imageView,
+                .width = 1280, // TODO
+                .height = 720, // TODO
+                .layers = 1,
+            };
+
+            return device->createFramebufferUnique(framebufferInfo);
+        });
+
+    return std::make_tuple(std::move(framebuffers), std::move(swapchainImageViews));
+}
+
 RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
@@ -502,6 +556,8 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     this->graphicsQueue = device->getQueue(graphicsQueueIndex, 0);
     this->swapchain = createSwapchain(surface, device, physicalDevice, graphicsQueueIndex);
     this->renderPass = createRenderPass(device);
+    std::tie(this->framebuffers, this->backbufferImageViews) =
+        createFramebuffers(device, swapchain, renderPass);
     for(auto& fence : queueDoneFences)
         fence = device->createFenceUnique({.flags = vk::FenceCreateFlagBits::eSignaled});
     for(auto& semaphore : imageAvailableSemaphores)

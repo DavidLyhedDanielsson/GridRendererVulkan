@@ -40,6 +40,8 @@ class RendererVulkan: public Renderer
     std::array<vk::UniqueSemaphore, BACKBUFFER_COUNT> renderFinishedSemaphores;
 
     vk::UniqueRenderPass renderPass;
+    std::vector<vk::UniqueFramebuffer> framebuffers;
+    std::vector<vk::UniqueImageView> backbufferImageViews;
     vk::UniqueDescriptorSetLayout descriptorSetLayout;
     vk::UniquePipelineLayout pipelineLayout;
     vk::UniquePipeline pipeline;
