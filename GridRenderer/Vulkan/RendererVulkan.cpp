@@ -455,7 +455,33 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
         std::move(pipelineLayout));
 }
 
-RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
+vk::UniqueSwapchainKHR createSwapchain(
+    const vk::UniqueSurfaceKHR& surface,
+    const vk::UniqueDevice& device,
+    const vk::PhysicalDevice& physicalDevice,
+    uint32_t queueFamilyIndex)
+{
+    auto formats = physicalDevice.getSurfaceFormatsKHR(*surface);
+    return device->createSwapchainKHRUnique({
+        .surface = *surface,
+        .minImageCount = 2,
+        .imageFormat = vk::Format::eB8G8R8A8Srgb,
+        .imageColorSpace = vk::ColorSpaceKHR::eSrgbNonlinear,
+        .imageExtent = physicalDevice.getSurfaceCapabilitiesKHR(*surface).currentExtent,
+        .imageArrayLayers = 1,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageSharingMode = vk::SharingMode::eExclusive,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &queueFamilyIndex,
+        .preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        .presentMode = vk::PresentModeKHR::eFifo,
+        .clipped = true,
+        .oldSwapchain = VK_NULL_HANDLE,
+    });
+}
+
+RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
     unsigned int extensionCount = 0;
@@ -471,9 +497,17 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle)
         auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
         this->device = std::move(device);
         this->physicalDevice = std::move(physicalDevice);
+        this->graphicsQueueIndex = graphicsQueueIndex;
     }
-    this->graphicsQueueIndex = graphicsQueueIndex;
+    this->graphicsQueue = device->getQueue(graphicsQueueIndex, 0);
+    this->swapchain = createSwapchain(surface, device, physicalDevice, graphicsQueueIndex);
     this->renderPass = createRenderPass(device);
+    for(auto& fence : queueDoneFences)
+        fence = device->createFenceUnique({.flags = vk::FenceCreateFlagBits::eSignaled});
+    for(auto& semaphore : imageAvailableSemaphores)
+        semaphore = device->createSemaphoreUnique({});
+    for(auto& semaphore : renderFinishedSemaphores)
+        semaphore = device->createSemaphoreUnique({});
 
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
     this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
@@ -552,8 +586,46 @@ void RendererVulkan::SetCamera(Camera* toSet) {}
 
 void RendererVulkan::SetLightBuffer(ResourceIndex lightBufferIndexToUse) {}
 
-void RendererVulkan::PreRender() {}
+void RendererVulkan::PreRender()
+{
+    device->waitForFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT], true, UINT64_MAX);
+
+    vk::Result res;
+    std::tie(res, currentSwapchainImageIndex) = device->acquireNextImageKHR(
+        *swapchain,
+        UINT64_MAX,
+        *imageAvailableSemaphores[currentFrame % BACKBUFFER_COUNT],
+        VK_NULL_HANDLE);
+    device->resetFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT]);
+    assert(res == vk::Result::eSuccess);
+}
 
 void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender) {}
 
-void RendererVulkan::Present() {}
+void RendererVulkan::Present()
+{
+    vk::PipelineStageFlags waitFlags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::SubmitInfo submitInfo = {
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*imageAvailableSemaphores[currentFrame % BACKBUFFER_COUNT],
+        .pWaitDstStageMask = &waitFlags,
+        .commandBufferCount = 0,
+        .pCommandBuffers = nullptr,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*renderFinishedSemaphores[currentFrame % BACKBUFFER_COUNT],
+    };
+    graphicsQueue.submit({submitInfo}, *queueDoneFences[currentFrame % BACKBUFFER_COUNT]);
+
+    vk::PresentInfoKHR presentInfo = {
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*renderFinishedSemaphores[currentFrame % BACKBUFFER_COUNT],
+        .swapchainCount = 1,
+        .pSwapchains = &*swapchain,
+        .pImageIndices = &currentSwapchainImageIndex,
+        .pResults = nullptr,
+    };
+    // This will _not_ return success if the window is resized
+    assert(graphicsQueue.presentKHR(presentInfo) == vk::Result::eSuccess);
+
+    currentFrame++;
+}

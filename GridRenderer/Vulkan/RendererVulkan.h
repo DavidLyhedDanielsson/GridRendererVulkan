@@ -11,6 +11,7 @@
 // vulkan_raii.hpp also includes smart (unique) pointers for vulkan types
 #include <vulkan/vulkan_raii.hpp>
 
+#include <array>
 #include <memory>
 #include <optional>
 
@@ -23,12 +24,20 @@
 class RendererVulkan: public Renderer
 {
   private:
+    // 2 for double buffering, 3 for triple, etc.
+    static constexpr uint32_t BACKBUFFER_COUNT = 2;
+
     vk::UniqueInstance instance;
     vk::UniqueDebugUtilsMessengerEXT debugCallback;
     vk::UniqueSurfaceKHR surface;
     uint32_t graphicsQueueIndex;
+    vk::Queue graphicsQueue;
     vk::UniqueDevice device;
     vk::PhysicalDevice physicalDevice;
+    vk::UniqueSwapchainKHR swapchain;
+    std::array<vk::UniqueFence, BACKBUFFER_COUNT> queueDoneFences;
+    std::array<vk::UniqueSemaphore, BACKBUFFER_COUNT> imageAvailableSemaphores;
+    std::array<vk::UniqueSemaphore, BACKBUFFER_COUNT> renderFinishedSemaphores;
 
     vk::UniqueRenderPass renderPass;
     vk::UniqueDescriptorSetLayout descriptorSetLayout;
@@ -45,6 +54,11 @@ class RendererVulkan: public Renderer
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
     std::vector<vk::UniqueShaderModule> shaderModules;
+
+    uint64_t currentFrame;
+    // Can't do currentFrame % BACKBUFFER_COUNT since the spec does not define the order of
+    // swapchain images
+    uint32_t currentSwapchainImageIndex;
 
   public:
     RendererVulkan(SDL_Window* windowHandle);
