@@ -353,7 +353,7 @@ std::tuple<vk::UniquePipeline, vk::UniqueDescriptorSetLayout, vk::UniquePipeline
 
     vk::PipelineRasterizationStateCreateInfo rasterizeInfo = {
         .depthClampEnable = false,
-        .rasterizerDiscardEnable = true,
+        .rasterizerDiscardEnable = false,
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eNone,
         .frontFace = vk::FrontFace::eClockwise,
