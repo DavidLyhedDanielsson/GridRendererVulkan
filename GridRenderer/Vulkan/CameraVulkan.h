@@ -32,4 +32,6 @@ class CameraVulkan: public Camera
     void MoveUp(float amount) override;
     void MoveRight(float amount) override;
     void RotateY(float radians) override;
+
+    glm::mat4 getViewProjMatrix();
 };
