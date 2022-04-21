@@ -8,19 +8,11 @@ BufferManagerVulkan::BufferManagerVulkan(
     : device(device)
     , physicalDevice(physicalDevice)
 {
-}
-
-ResourceIndex BufferManagerVulkan::AddBuffer(
-    void* data,
-    unsigned int elementSize,
-    unsigned int nrOfElements,
-    PerFrameWritePattern cpuWrite,
-    PerFrameWritePattern gpuWrite,
-    unsigned int bindingFlags)
-{
     auto buffer = device->createBufferUnique({
-        .size = elementSize * nrOfElements,
-        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+        .size = BACKING_BUFFER_SIZE,
+        .usage = vk::BufferUsageFlagBits::eStorageBuffer
+                 | vk::BufferUsageFlagBits::eUniformBuffer, // TODO: Investigate, what is the
+                                                            // performance implication of mixing?
         .sharingMode = vk::SharingMode::eExclusive,
         // Not used since eExclusive is used
         .queueFamilyIndexCount = 0,
@@ -48,8 +40,6 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
     assert(memoryIndexOpt.has_value());
     uint32_t memoryIndex = memoryIndexOpt.value();
 
-    // TODO: Allocate big buffer for multiple buffers instead of one allocation
-    // per buffer
     auto memory = device->allocateMemoryUnique({
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex = memoryIndex,
@@ -57,16 +47,48 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
 
     device->bindBufferMemory(*buffer, *memory, 0);
 
+    this->backingBuffer.buffer = std::move(buffer);
+    this->backingBuffer.memory = std::move(memory);
+    this->backingBuffer.size = BACKING_BUFFER_SIZE;
+}
+
+ResourceIndex BufferManagerVulkan::AddBuffer(
+    void* data,
+    unsigned int elementSize,
+    unsigned int nrOfElements,
+    PerFrameWritePattern cpuWrite,
+    PerFrameWritePattern gpuWrite,
+    unsigned int bindingFlags)
+{
+    {
+        const uint32_t bufferSizeWithoutPadding = elementSize * nrOfElements;
+        const uint32_t bufferSizeWithPadding =
+            bufferSizeWithoutPadding + BACKING_BUFFER_ALIGNMENT
+            - (bufferSizeWithoutPadding % BACKING_BUFFER_ALIGNMENT);
+
+        uint32_t bufferOffset =
+            buffers.empty() ? 0
+                            : buffers.back().backingBufferOffset + buffers.back().sizeWithPadding;
+
+        buffers.push_back({
+            .elementCount = nrOfElements,
+            .sizeWithoutPadding = bufferSizeWithoutPadding,
+            .sizeWithPadding = bufferSizeWithPadding,
+            .backingBufferOffset = bufferOffset,
+        });
+    }
+    const Buffer& buffer = buffers.back();
+
     // TODO: Use staging buffer instead of map for immediate performance gains
     // Don't forget to change the memory type from eHostCoherent!
-    void* dataPtr = device->mapMemory(*memory, 0, VK_WHOLE_SIZE);
-    std::memcpy(dataPtr, data, elementSize * nrOfElements);
-    device->unmapMemory(*memory);
+    void* dataPtr = device->mapMemory(
+        *backingBuffer.memory,
+        buffer.backingBufferOffset,
+        buffer.sizeWithoutPadding);
+    std::memcpy(dataPtr, data, buffer.sizeWithoutPadding);
+    device->unmapMemory(*backingBuffer.memory);
 
-    memories.push_back(std::move(memory));
-    buffers.push_back(std::move(buffer));
-
-    return ResourceIndex(buffers.size() - 1);
+    return buffers.size() - 1;
 }
 
 void BufferManagerVulkan::UpdateBuffer(ResourceIndex index, void* data) {}
@@ -78,5 +100,15 @@ unsigned int BufferManagerVulkan::GetElementSize(ResourceIndex index)
 
 unsigned int BufferManagerVulkan::GetElementCount(ResourceIndex index)
 {
-    return -1;
+    return buffers[index].elementCount;
+}
+
+vk::Buffer BufferManagerVulkan::GetBackingBuffer()
+{
+    return *backingBuffer.buffer;
+}
+
+const Buffer& BufferManagerVulkan::GetBuffer(ResourceIndex index)
+{
+    return buffers[index];
 }

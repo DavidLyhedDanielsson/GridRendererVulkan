@@ -1,10 +1,29 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include <vulkan/vulkan_raii.hpp>
 
 #include "../BufferManager.h"
+
+struct Buffer
+{
+    uint32_t elementCount;
+    uint32_t sizeWithoutPadding;
+    uint32_t sizeWithPadding;
+    uint32_t backingBufferOffset;
+};
+
+constexpr uint32_t BACKING_BUFFER_SIZE = 1024 * 1024 * 64;
+constexpr uint32_t BACKING_BUFFER_ALIGNMENT = 256; // TODO: Look up at runtime
+
+struct BackingBuffer
+{
+    vk::UniqueDeviceMemory memory;
+    vk::UniqueBuffer buffer;
+    uint32_t size;
+};
 
 class BufferManagerVulkan: public BufferManager
 {
@@ -12,8 +31,8 @@ class BufferManagerVulkan: public BufferManager
     const vk::UniqueDevice& device;
     const vk::PhysicalDevice& physicalDevice;
 
-    std::vector<vk::UniqueDeviceMemory> memories;
-    std::vector<vk::UniqueBuffer> buffers;
+    BackingBuffer backingBuffer;
+    std::vector<Buffer> buffers;
 
   public:
     BufferManagerVulkan(const vk::UniqueDevice& device, const vk::PhysicalDevice& physicalDevice);
@@ -33,4 +52,7 @@ class BufferManagerVulkan: public BufferManager
     void UpdateBuffer(ResourceIndex index, void* data) override;
     unsigned int GetElementSize(ResourceIndex index) override;
     unsigned int GetElementCount(ResourceIndex index) override;
+
+    vk::Buffer GetBackingBuffer();
+    const Buffer& GetBuffer(ResourceIndex index);
 };

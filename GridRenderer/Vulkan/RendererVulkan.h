@@ -42,7 +42,12 @@ class RendererVulkan: public Renderer
     vk::UniqueRenderPass renderPass;
     std::vector<vk::UniqueFramebuffer> framebuffers;
     std::vector<vk::UniqueImageView> backbufferImageViews;
-    vk::UniqueDescriptorSetLayout descriptorSetLayout;
+    vk::UniqueDescriptorSetLayout vertexIndexDescriptorSetLayout;
+    vk::UniqueDescriptorSetLayout transformBufferDescriptorSetLayout;
+    vk::UniqueDescriptorSetLayout viewProjectionDescriptorSetLayout;
+    vk::UniqueDescriptorSet vertexIndexDescriptorSet;
+    vk::UniqueDescriptorSet transformDescriptorSet;
+    vk::UniqueDescriptorSet viewProjectionDescriptorSet;
     vk::UniquePipelineLayout pipelineLayout;
     vk::UniquePipeline pipeline;
 
@@ -50,6 +55,7 @@ class RendererVulkan: public Renderer
     std::vector<vk::UniqueCommandBuffer> commandBuffers;
 
     std::optional<CameraVulkan> cameraOpt;
+    ResourceIndex cameraBufferIndex;
 
     // Use dynamic memory so that the sampler manager can be initialized with a reference to
     // this->device
@@ -59,6 +65,8 @@ class RendererVulkan: public Renderer
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
     std::vector<vk::UniqueShaderModule> shaderModules;
+
+    vk::UniqueDescriptorPool descriptorPool;
 
     uint64_t currentFrame;
     // Can't do currentFrame % BACKBUFFER_COUNT since the spec does not define the order of
