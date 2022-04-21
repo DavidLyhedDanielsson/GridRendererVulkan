@@ -123,7 +123,7 @@ vk::UniqueSurfaceKHR createSurface(SDL_Window* handle, const vk::UniqueInstance&
     VkSurfaceKHR surfaceRaw;
     if(!SDL_Vulkan_CreateSurface(handle, *instance, &surfaceRaw))
         throw std::runtime_error("Cannot create vulkan surface");
-    return vk::UniqueSurfaceKHR(surfaceRaw);
+    return vk::UniqueSurfaceKHR(surfaceRaw, *instance);
 }
 
 struct DeviceInfo
