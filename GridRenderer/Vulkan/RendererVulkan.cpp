@@ -556,7 +556,7 @@ vk::UniqueDescriptorPool createDescriptorPool(const vk::UniqueDevice& device)
         },
     };
     vk::DescriptorPoolCreateInfo poolInfo = {
-        .flags = vk::DescriptorPoolCreateFlags(),
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = 10,
         .poolSizeCount = poolSizes.size(),
         .pPoolSizes = poolSizes.data(),

@@ -45,6 +45,7 @@ class RendererVulkan: public Renderer
     vk::UniqueDescriptorSetLayout vertexIndexDescriptorSetLayout;
     vk::UniqueDescriptorSetLayout transformBufferDescriptorSetLayout;
     vk::UniqueDescriptorSetLayout viewProjectionDescriptorSetLayout;
+    vk::UniqueDescriptorPool descriptorPool;
     vk::UniqueDescriptorSet vertexIndexDescriptorSet;
     std::array<vk::UniqueDescriptorSet, BACKBUFFER_COUNT> transformDescriptorSets;
     vk::UniqueDescriptorSet viewProjectionDescriptorSet;
@@ -65,8 +66,6 @@ class RendererVulkan: public Renderer
 
     std::vector<GraphicsRenderPassVulkan> renderPasses;
     std::vector<vk::UniqueShaderModule> shaderModules;
-
-    vk::UniqueDescriptorPool descriptorPool;
 
     uint64_t currentFrame;
     // Can't do currentFrame % BACKBUFFER_COUNT since the spec does not define the order of
