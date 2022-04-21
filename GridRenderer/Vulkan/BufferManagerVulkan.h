@@ -15,8 +15,8 @@ struct Buffer
     uint32_t backingBufferOffset;
 };
 
-constexpr uint32_t BACKING_BUFFER_SIZE = 1024 * 1024 * 64;
-constexpr uint32_t BACKING_BUFFER_ALIGNMENT = 256; // TODO: Look up at runtime
+constexpr uint32_t BACKING_BUFFER_SIZE = 1024 * 1024 * 16;
+constexpr uint32_t BACKING_BUFFER_ALIGNMENT = 64; // TODO: Look up at runtime
 
 struct BackingBuffer
 {
