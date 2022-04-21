@@ -28,9 +28,9 @@ layout(binding = 1, set = 0) readonly buffer IndexBuffer
 indexBuffer;
 
 // Will be updated randomly
-layout(binding = 0, set = 1) uniform TransformBuffer
+layout(binding = 0, set = 1) readonly buffer TransformBuffer
 {
-    mat4 worldMatrix;
+    mat4 worldMatrices[];
 }
 transformBuffer;
 
@@ -51,7 +51,7 @@ void main()
     uint index = indexBuffer.indices[gl_VertexIndex];
     Vertex vertex = vertexBuffer.vertices[index];
 
-    vec4 worldPosition = transpose(transformBuffer.worldMatrix)
+    vec4 worldPosition = transpose(transformBuffer.worldMatrices[gl_InstanceIndex])
                          * vec4(vertex.positionX, vertex.positionY, vertex.positionZ, 1.0);
     gl_Position = cameraBuffer.viewProjMatrix * worldPosition;
 

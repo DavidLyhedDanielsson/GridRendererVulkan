@@ -7,12 +7,22 @@
 
 #include "../BufferManager.h"
 
+// TODO: Move info config.h or something to deduplicate
+static constexpr uint32_t BACKBUFFER_COUNT = 2;
+
+enum class BackingBufferType
+{
+    WRITE_ONCE,
+    DYNAMIC
+};
+
 struct Buffer
 {
     uint32_t elementCount;
     uint32_t sizeWithoutPadding;
     uint32_t sizeWithPadding;
     uint32_t backingBufferOffset;
+    BackingBufferType backingBufferType;
 };
 
 constexpr uint32_t BACKING_BUFFER_SIZE = 1024 * 1024 * 16;
@@ -25,13 +35,23 @@ struct BackingBuffer
     uint32_t size;
 };
 
+struct RoundRobinBuffer
+{
+    vk::UniqueDeviceMemory memory;
+    vk::UniqueBuffer buffer;
+    uint32_t totalSize;
+    uint32_t chunkSize;
+};
+
 class BufferManagerVulkan: public BufferManager
 {
   private:
     const vk::UniqueDevice& device;
     const vk::PhysicalDevice& physicalDevice;
 
-    BackingBuffer backingBuffer;
+    BackingBuffer writeOnceBackingBuffer;
+    BackingBuffer dynamicBackingBuffer;
+    RoundRobinBuffer roundRobinBuffer;
     std::vector<Buffer> buffers;
 
   public:
@@ -53,6 +73,11 @@ class BufferManagerVulkan: public BufferManager
     unsigned int GetElementSize(ResourceIndex index) override;
     unsigned int GetElementCount(ResourceIndex index) override;
 
-    vk::Buffer GetBackingBuffer();
+    vk::Buffer GetWriteOnceBackingBuffer();
+    vk::Buffer GetDynamicBackingBuffer();
+    vk::Buffer GetRoundRobinBuffer();
+    uint32_t GetRoundRobinChunkSize();
+
     const Buffer& GetBuffer(ResourceIndex index);
+    vk::Buffer GetBackingBuffer(ResourceIndex index);
 };

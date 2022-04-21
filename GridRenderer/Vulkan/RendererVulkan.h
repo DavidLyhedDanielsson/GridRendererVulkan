@@ -46,7 +46,7 @@ class RendererVulkan: public Renderer
     vk::UniqueDescriptorSetLayout transformBufferDescriptorSetLayout;
     vk::UniqueDescriptorSetLayout viewProjectionDescriptorSetLayout;
     vk::UniqueDescriptorSet vertexIndexDescriptorSet;
-    vk::UniqueDescriptorSet transformDescriptorSet;
+    std::array<vk::UniqueDescriptorSet, BACKBUFFER_COUNT> transformDescriptorSets;
     vk::UniqueDescriptorSet viewProjectionDescriptorSet;
     vk::UniquePipelineLayout pipelineLayout;
     vk::UniquePipeline pipeline;

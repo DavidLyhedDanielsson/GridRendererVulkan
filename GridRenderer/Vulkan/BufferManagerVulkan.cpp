@@ -2,11 +2,11 @@
 
 #include <optional>
 
-BufferManagerVulkan::BufferManagerVulkan(
+#include "StlHelpers/EntireCollection.h"
+
+BackingBuffer createWriteOnceBackingBuffer(
     const vk::UniqueDevice& device,
     const vk::PhysicalDevice& physicalDevice)
-    : device(device)
-    , physicalDevice(physicalDevice)
 {
     auto buffer = device->createBufferUnique({
         .size = BACKING_BUFFER_SIZE,
@@ -47,9 +47,122 @@ BufferManagerVulkan::BufferManagerVulkan(
 
     device->bindBufferMemory(*buffer, *memory, 0);
 
-    this->backingBuffer.buffer = std::move(buffer);
-    this->backingBuffer.memory = std::move(memory);
-    this->backingBuffer.size = BACKING_BUFFER_SIZE;
+    return BackingBuffer{
+        .memory = std::move(memory),
+        .buffer = std::move(buffer),
+        .size = BACKING_BUFFER_SIZE,
+    };
+}
+
+BackingBuffer createDynamicBackingBuffer(
+    const vk::UniqueDevice& device,
+    const vk::PhysicalDevice& physicalDevice)
+{
+    auto buffer = device->createBufferUnique({
+        .size = BACKING_BUFFER_SIZE,
+        .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eUniformBuffer
+                 | vk::BufferUsageFlagBits::eTransferSrc, // TODO: Investigate, what is the
+                                                          // performance implication of mixing?
+        .sharingMode = vk::SharingMode::eExclusive,
+        // Not used since eExclusive is used
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    });
+
+    vk::MemoryRequirements memoryRequirements = device->getBufferMemoryRequirements(*buffer);
+    vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
+
+    std::optional<uint32_t> memoryIndexOpt;
+    for(uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+    {
+        bool memoryTypeSupported = memoryRequirements.memoryTypeBits & (1 << i);
+
+        if(memoryTypeSupported
+           && memoryProperties.memoryTypes[i].propertyFlags
+                  & vk::MemoryPropertyFlagBits::eHostCoherent) // Coherent for map functionality
+        {
+            // TODO: Investigate, are there reasons not to pick the first
+            // compatible memory?
+            memoryIndexOpt = i;
+            break;
+        }
+    }
+    assert(memoryIndexOpt.has_value());
+    uint32_t memoryIndex = memoryIndexOpt.value();
+
+    auto memory = device->allocateMemoryUnique({
+        .allocationSize = memoryRequirements.size,
+        .memoryTypeIndex = memoryIndex,
+    });
+
+    device->bindBufferMemory(*buffer, *memory, 0);
+
+    return BackingBuffer{
+        .memory = std::move(memory),
+        .buffer = std::move(buffer),
+        .size = BACKING_BUFFER_SIZE,
+    };
+}
+
+RoundRobinBuffer createRoundRobinBuffer(
+    const vk::UniqueDevice& device,
+    const vk::PhysicalDevice& physicalDevice)
+{
+    auto buffer = device->createBufferUnique({
+        .size = BACKING_BUFFER_SIZE * BACKBUFFER_COUNT,
+        .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eUniformBuffer
+                 | vk::BufferUsageFlagBits::eTransferDst,
+        .sharingMode = vk::SharingMode::eExclusive,
+        // Not used since eExclusive is used
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    });
+
+    vk::MemoryRequirements memoryRequirements = device->getBufferMemoryRequirements(*buffer);
+    vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
+
+    std::optional<uint32_t> memoryIndexOpt;
+    for(uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+    {
+        bool memoryTypeSupported = memoryRequirements.memoryTypeBits & (1 << i);
+
+        if(memoryTypeSupported
+           && memoryProperties.memoryTypes[i].propertyFlags
+                  & vk::MemoryPropertyFlagBits::eHostCoherent) // Coherent for map functionality
+        {
+            // TODO: Investigate, are there reasons not to pick the first
+            // compatible memory?
+            memoryIndexOpt = i;
+            break;
+        }
+    }
+    assert(memoryIndexOpt.has_value());
+    uint32_t memoryIndex = memoryIndexOpt.value();
+
+    auto memory = device->allocateMemoryUnique({
+        .allocationSize = memoryRequirements.size,
+        .memoryTypeIndex = memoryIndex,
+    });
+
+    device->bindBufferMemory(*buffer, *memory, 0);
+
+    return RoundRobinBuffer{
+        .memory = std::move(memory),
+        .buffer = std::move(buffer),
+        .totalSize = BACKING_BUFFER_SIZE * BACKBUFFER_COUNT,
+        .chunkSize = BACKING_BUFFER_SIZE,
+    };
+}
+
+BufferManagerVulkan::BufferManagerVulkan(
+    const vk::UniqueDevice& device,
+    const vk::PhysicalDevice& physicalDevice)
+    : device(device)
+    , physicalDevice(physicalDevice)
+    , writeOnceBackingBuffer(createWriteOnceBackingBuffer(device, physicalDevice))
+    , dynamicBackingBuffer(createDynamicBackingBuffer(device, physicalDevice))
+    , roundRobinBuffer(createRoundRobinBuffer(device, physicalDevice))
+{
 }
 
 ResourceIndex BufferManagerVulkan::AddBuffer(
@@ -60,21 +173,33 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
     PerFrameWritePattern gpuWrite,
     unsigned int bindingFlags)
 {
+    auto backingBufferType = cpuWrite == PerFrameWritePattern::NEVER ? BackingBufferType::WRITE_ONCE
+                                                                     : BackingBufferType::DYNAMIC;
+
     {
+        auto lastMatchingBuffer =
+            std::find_if(buffers.rbegin(), buffers.rend(), [=](const Buffer& buffer) {
+                return buffer.backingBufferType == backingBufferType;
+            });
+
+        uint32_t bufferOffset = 0;
+        if(lastMatchingBuffer != buffers.rend())
+        {
+            bufferOffset =
+                lastMatchingBuffer->backingBufferOffset + lastMatchingBuffer->sizeWithPadding;
+        }
+
         const uint32_t bufferSizeWithoutPadding = elementSize * nrOfElements;
         const uint32_t bufferSizeWithPadding =
             bufferSizeWithoutPadding + BACKING_BUFFER_ALIGNMENT
             - (bufferSizeWithoutPadding % BACKING_BUFFER_ALIGNMENT);
-
-        uint32_t bufferOffset =
-            buffers.empty() ? 0
-                            : buffers.back().backingBufferOffset + buffers.back().sizeWithPadding;
 
         buffers.push_back({
             .elementCount = nrOfElements,
             .sizeWithoutPadding = bufferSizeWithoutPadding,
             .sizeWithPadding = bufferSizeWithPadding,
             .backingBufferOffset = bufferOffset,
+            .backingBufferType = backingBufferType,
         });
     }
     const Buffer& buffer = buffers.back();
@@ -82,11 +207,14 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
     // TODO: Use staging buffer instead of map for immediate performance gains
     // Don't forget to change the memory type from eHostCoherent!
     void* dataPtr = device->mapMemory(
-        *backingBuffer.memory,
+        (backingBufferType == BackingBufferType::WRITE_ONCE ? *writeOnceBackingBuffer.memory
+                                                            : *dynamicBackingBuffer.memory),
         buffer.backingBufferOffset,
         buffer.sizeWithoutPadding);
     std::memcpy(dataPtr, data, buffer.sizeWithoutPadding);
-    device->unmapMemory(*backingBuffer.memory);
+    device->unmapMemory(
+        (backingBufferType == BackingBufferType::WRITE_ONCE ? *writeOnceBackingBuffer.memory
+                                                            : *dynamicBackingBuffer.memory));
 
     return buffers.size() - 1;
 }
@@ -103,12 +231,34 @@ unsigned int BufferManagerVulkan::GetElementCount(ResourceIndex index)
     return buffers[index].elementCount;
 }
 
-vk::Buffer BufferManagerVulkan::GetBackingBuffer()
+vk::Buffer BufferManagerVulkan::GetWriteOnceBackingBuffer()
 {
-    return *backingBuffer.buffer;
+    return *writeOnceBackingBuffer.buffer;
+}
+
+vk::Buffer BufferManagerVulkan::GetDynamicBackingBuffer()
+{
+    return *dynamicBackingBuffer.buffer;
+}
+
+vk::Buffer BufferManagerVulkan::GetRoundRobinBuffer()
+{
+    return *roundRobinBuffer.buffer;
+}
+
+uint32_t BufferManagerVulkan::GetRoundRobinChunkSize()
+{
+    return roundRobinBuffer.chunkSize;
 }
 
 const Buffer& BufferManagerVulkan::GetBuffer(ResourceIndex index)
 {
     return buffers[index];
+}
+
+vk::Buffer BufferManagerVulkan::GetBackingBuffer(ResourceIndex index)
+{
+    return buffers[index].backingBufferType == BackingBufferType::WRITE_ONCE
+               ? *writeOnceBackingBuffer.buffer
+               : *dynamicBackingBuffer.buffer;
 }
