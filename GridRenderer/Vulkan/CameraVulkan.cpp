@@ -13,6 +13,8 @@ CameraVulkan::CameraVulkan(
     float aspectRatio)
 {
     projectionMatrix = glm::perspective(glm::radians(90.0f), aspectRatio, minDepth, maxDepth);
+    projectionMatrix[1][1] *= -1.0f;
+
     position = {0.0f, 0.0f, -4.0f};
     forward = {0.0f, 0.0f, 1.0f};
     up = {0.0f, 1.0f, 0.0f};
