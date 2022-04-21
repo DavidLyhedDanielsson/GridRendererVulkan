@@ -191,8 +191,8 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
 
         const uint32_t bufferSizeWithoutPadding = elementSize * nrOfElements;
         const uint32_t bufferSizeWithPadding =
-            bufferSizeWithoutPadding + BACKING_BUFFER_ALIGNMENT
-            - (bufferSizeWithoutPadding % BACKING_BUFFER_ALIGNMENT);
+            (bufferSizeWithoutPadding + BACKING_BUFFER_ALIGNMENT - 1) / BACKING_BUFFER_ALIGNMENT
+            * BACKING_BUFFER_ALIGNMENT;
 
         buffers.push_back({
             .elementCount = nrOfElements,
