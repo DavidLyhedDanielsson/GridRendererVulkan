@@ -43,5 +43,5 @@ void CameraVulkan::RotateY(float radians)
 
 glm::mat4 CameraVulkan::getViewProjMatrix()
 {
-    return projectionMatrix * glm::lookAt({3.0f, 3.0f, 3.0f}, {0.0f, 0.0f, 0.0f}, up);
+    return projectionMatrix * glm::lookAt({10.0f, 10.0f, 10.0f}, {0.0f, 0.0f, 0.0f}, up);
 }
