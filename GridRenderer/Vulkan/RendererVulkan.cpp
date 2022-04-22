@@ -597,7 +597,11 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
 
     this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
     this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
-    this->textureManager = std::make_unique<TextureManagerVulkan>();
+    this->textureManager = std::make_unique<TextureManagerVulkan>(
+        this->device,
+        this->physicalDevice,
+        this->graphicsQueue,
+        this->graphicsQueueIndex);
 
     this->commandPool = device->createCommandPoolUnique({
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
