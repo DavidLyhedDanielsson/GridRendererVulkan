@@ -900,6 +900,9 @@ void RendererVulkan::PreRender()
     device->resetFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT]);
     assert(res == vk::Result::eSuccess);
 
+    glm::mat4 viewProj = cameraOpt->getViewProjMatrix();
+    bufferManager->UpdateBuffer(cameraBufferIndex, &viewProj);
+
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->reset();
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->begin(
         {.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});

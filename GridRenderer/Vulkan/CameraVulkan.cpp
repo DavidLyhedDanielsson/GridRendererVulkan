@@ -1,11 +1,14 @@
 #include "CameraVulkan.h"
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/rotate_vector.hpp>
 
 #include "BufferManagerVulkan.h"
+
+#if !GLM_FORCE_DEPTH_ZERO_TO_ONE || !GLM_FORCE_RADIANS
+    #error GLM compile flags are not set
+#endif
 
 CameraVulkan::CameraVulkan(
     BufferManagerVulkan& bufferManager,
@@ -17,7 +20,7 @@ CameraVulkan::CameraVulkan(
     projectionMatrix[1][1] *= -1.0f;
 
     position = {0.0f, 0.0f, -4.0f};
-    forward = {0.0f, 0.0f, 1.0f};
+    forward = {0.0f, 0.0f, -1.0f};
     up = {0.0f, 1.0f, 0.0f};
     right = {1.0f, 0.0f, 0.0f};
 }
@@ -39,10 +42,11 @@ void CameraVulkan::MoveRight(float amount)
 
 void CameraVulkan::RotateY(float radians)
 {
-    // TODO
+    forward = glm::rotate(forward, -radians, up);
+    right = glm::rotate(right, -radians, up);
 }
 
 glm::mat4 CameraVulkan::getViewProjMatrix()
 {
-    return projectionMatrix * glm::lookAt({10.0f, 10.0f, 10.0f}, {0.0f, 0.0f, 0.0f}, up);
+    return projectionMatrix * glm::lookAt(position, position + forward, up);
 }
