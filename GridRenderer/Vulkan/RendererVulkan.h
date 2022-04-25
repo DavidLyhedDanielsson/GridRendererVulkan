@@ -50,7 +50,10 @@ class RendererVulkan: public Renderer
 
     vk::UniqueRenderPass renderPass;
     std::vector<vk::UniqueFramebuffer> framebuffers;
-    std::vector<vk::UniqueImageView> backbufferImageViews;
+    std::vector<vk::UniqueImageView> backBufferImageViews;
+    vk::UniqueImage depthBuffer;
+    vk::UniqueDeviceMemory depthBufferMemory;
+    vk::UniqueImageView depthBufferView;
     vk::UniqueDescriptorPool descriptorPool;
     vk::UniqueDescriptorSet vertexIndexDescriptorSet;
     DescriptorSetLayouts descriptorSetLayouts;

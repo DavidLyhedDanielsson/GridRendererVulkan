@@ -209,7 +209,7 @@ DeviceInfo createDevice(const vk::UniqueInstance& instance, const vk::UniqueSurf
 
 vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
 {
-    vk::AttachmentDescription attachment = {
+    vk::AttachmentDescription backBufferAttachmentDescription = {
         .format = vk::Format::eB8G8R8A8Srgb,
         .samples = vk::SampleCountFlagBits::e1,
         .loadOp = vk::AttachmentLoadOp::eClear,
@@ -221,10 +221,27 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
         .initialLayout = vk::ImageLayout::eUndefined,
         .finalLayout = vk::ImageLayout::ePresentSrcKHR,
     };
-
-    vk::AttachmentReference backbufferAttachment = {
+    vk::AttachmentReference backBufferAttachment = {
         .attachment = 0,
         .layout = vk::ImageLayout::eColorAttachmentOptimal,
+    };
+
+    vk::AttachmentDescription depthbufferAttachmentDescription = {
+        .format = vk::Format::eD24UnormS8Uint, // TODO: change to R32, requires
+                                               // separateDepthStencilLayouts feature
+        .samples = vk::SampleCountFlagBits::e1,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore, // TODO: store?
+        .stencilLoadOp =
+            vk::AttachmentLoadOp::eDontCare, // Not used since format does not define stencil
+        .stencilStoreOp =
+            vk::AttachmentStoreOp::eDontCare, // Not used since format does not define stencil
+        .initialLayout = vk::ImageLayout::eUndefined,
+        .finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal, // TODO: readonly?
+    };
+    vk::AttachmentReference depthbufferAttachment = {
+        .attachment = 1,
+        .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
     };
 
     vk::SubpassDescription subpass = {
@@ -232,9 +249,9 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
         .inputAttachmentCount = 0,
         .pInputAttachments = nullptr,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &backbufferAttachment,
+        .pColorAttachments = &backBufferAttachment,
         .pResolveAttachments = nullptr,
-        .pDepthStencilAttachment = nullptr,
+        .pDepthStencilAttachment = &depthbufferAttachment,
         .preserveAttachmentCount = 0,
         .pPreserveAttachments = nullptr,
     };
@@ -242,16 +259,23 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
     vk::SubpassDependency dependency = {
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .dstSubpass = 0,
-        .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput
+                        | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput
+                        | vk::PipelineStageFlagBits::eEarlyFragmentTests,
         .srcAccessMask = vk::AccessFlagBits::eNone,
-        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite
+                         | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
         .dependencyFlags = vk::DependencyFlags(),
     };
 
+    std::array<vk::AttachmentDescription, 2> attachmentDescriptions = {
+        backBufferAttachmentDescription,
+        depthbufferAttachmentDescription,
+    };
     vk::RenderPassCreateInfo renderPassInfo = {
-        .attachmentCount = 1,
-        .pAttachments = &attachment,
+        .attachmentCount = attachmentDescriptions.size(),
+        .pAttachments = attachmentDescriptions.data(),
         .subpassCount = 1,
         .pSubpasses = &subpass,
         .dependencyCount = 1,
@@ -346,6 +370,18 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .alphaToOneEnable = false,
     };
 
+    vk::PipelineDepthStencilStateCreateInfo depthStencilInfo = {
+        .depthTestEnable = true,
+        .depthWriteEnable = true,
+        .depthCompareOp = vk::CompareOp::eLessOrEqual,
+        .depthBoundsTestEnable = false,
+        .stencilTestEnable = false,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 0.0f,
+    };
+
     vk::PipelineColorBlendAttachmentState blendAttachmentInfo = {
         .blendEnable = false,
         .srcColorBlendFactor = vk::BlendFactor::eOne,
@@ -390,7 +426,7 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .pViewportState = &viewportInfo,
         .pRasterizationState = &rasterizeInfo,
         .pMultisampleState = &multisampleInfo,
-        .pDepthStencilState = nullptr,
+        .pDepthStencilState = &depthStencilInfo,
         .pColorBlendState = &blendInfo,
         .pDynamicState = nullptr,
         .layout = *pipelineLayout,
@@ -433,7 +469,8 @@ vk::UniqueSwapchainKHR createSwapchain(
 std::tuple<std::vector<vk::UniqueFramebuffer>, std::vector<vk::UniqueImageView>> createFramebuffers(
     const vk::UniqueDevice& device,
     const vk::UniqueSwapchainKHR& swapchain,
-    const vk::UniqueRenderPass& renderPass)
+    const vk::UniqueRenderPass& renderPass,
+    const vk::UniqueImageView& depthBuffer)
 {
     std::vector<vk::Image> swapchainImages = device->getSwapchainImagesKHR(*swapchain);
     std::vector<vk::UniqueImageView> swapchainImageViews;
@@ -469,10 +506,14 @@ std::tuple<std::vector<vk::UniqueFramebuffer>, std::vector<vk::UniqueImageView>>
         entire_collection(swapchainImageViews),
         std::back_inserter(framebuffers),
         [&](const vk::UniqueImageView& imageView) {
+            std::array<vk::ImageView, 2> attachments = {
+                *imageView,
+                *depthBuffer,
+            };
             vk::FramebufferCreateInfo framebufferInfo = {
                 .renderPass = *renderPass,
-                .attachmentCount = 1,
-                .pAttachments = &*imageView,
+                .attachmentCount = attachments.size(),
+                .pAttachments = attachments.data(),
                 .width = 1280, // TODO
                 .height = 720, // TODO
                 .layers = 1,
@@ -592,6 +633,87 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
     };
 }
 
+std::tuple<vk::UniqueImage, vk::UniqueDeviceMemory, vk::UniqueImageView> createDepthBuffer(
+    const vk::UniqueDevice& device,
+    const vk::PhysicalDevice& physicalDevice,
+    uint32_t queueFamilyIndex)
+{
+    vk::ImageCreateInfo imageInfo = {
+        .imageType = vk::ImageType::e2D,
+        .format = vk::Format::eD24UnormS8Uint,
+        .extent =
+            {
+                .width = 1280, // TODO
+                .height = 720, // TODO
+                .depth = 1,
+            },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCountFlagBits::e1,
+        .tiling = vk::ImageTiling::eOptimal,
+        .usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        .sharingMode = vk::SharingMode::eExclusive,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &queueFamilyIndex,
+        .initialLayout = vk::ImageLayout::eUndefined,
+    };
+    auto depthBuffer = device->createImageUnique(imageInfo);
+
+    vk::MemoryRequirements memoryRequirements = device->getImageMemoryRequirements(*depthBuffer);
+    vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
+    std::optional<uint32_t> memoryIndexOpt;
+    for(uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+    {
+        bool memoryTypeSupported = memoryRequirements.memoryTypeBits & (1 << i);
+
+        if(memoryTypeSupported
+           && memoryProperties.memoryTypes[i].propertyFlags
+                  & vk::MemoryPropertyFlagBits::eDeviceLocal)
+        {
+            memoryIndexOpt = i;
+            break;
+        }
+    }
+    assert(memoryIndexOpt.has_value());
+    uint32_t memoryIndex = memoryIndexOpt.value();
+
+    vk::MemoryAllocateInfo memoryInfo = {
+        .allocationSize = memoryRequirements.size,
+        .memoryTypeIndex = memoryIndex,
+    };
+    auto depthBufferMemory = device->allocateMemoryUnique(memoryInfo);
+    device->bindImageMemory(*depthBuffer, *depthBufferMemory, 0);
+
+    vk::ImageViewCreateInfo imageViewInfo = {
+        .image = *depthBuffer,
+        .viewType = vk::ImageViewType::e2D,
+        .format = vk::Format::eD24UnormS8Uint,
+        .components =
+            {
+                .r = vk::ComponentSwizzle::eIdentity,
+                .g = vk::ComponentSwizzle::eIdentity,
+                .b = vk::ComponentSwizzle::eIdentity,
+                .a = vk::ComponentSwizzle::eIdentity,
+            },
+        .subresourceRange =
+            {
+                .aspectMask = vk::ImageAspectFlagBits::eDepth,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    auto depthBufferView = device->createImageViewUnique(imageViewInfo);
+
+    // The render pass will transition to the depth buffer layout
+
+    return std::make_tuple(
+        std::move(depthBuffer),
+        std::move(depthBufferMemory),
+        std::move(depthBufferView));
+}
+
 RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
@@ -613,8 +735,10 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     this->graphicsQueue = device->getQueue(graphicsQueueIndex, 0);
     this->swapchain = createSwapchain(surface, device, physicalDevice, graphicsQueueIndex);
     this->renderPass = createRenderPass(device);
-    std::tie(this->framebuffers, this->backbufferImageViews) =
-        createFramebuffers(device, swapchain, renderPass);
+    std::tie(this->depthBuffer, this->depthBufferMemory, this->depthBufferView) =
+        createDepthBuffer(device, physicalDevice, graphicsQueueIndex);
+    std::tie(this->framebuffers, this->backBufferImageViews) =
+        createFramebuffers(device, swapchain, renderPass, depthBufferView);
     for(auto& fence : queueDoneFences)
         fence = device->createFenceUnique({.flags = vk::FenceCreateFlagBits::eSignaled});
     for(auto& semaphore : imageAvailableSemaphores)
@@ -920,7 +1044,9 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         0,
         nullptr);
 
-    vk::ClearColorValue clearColor = {std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f}};
+    std::array<vk::ClearValue, 2> clearValues = {};
+    clearValues[0].color = vk::ClearColorValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
     vk::RenderPassBeginInfo info = {
         .renderPass = *renderPass,
         .framebuffer = *framebuffers[currentSwapchainImageIndex],
@@ -929,8 +1055,8 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
                 .offset = {0, 0},
                 .extent = {1280, 720} // TODO
             },
-        .clearValueCount = 1,
-        .pClearValues = (vk::ClearValue*)&clearColor,
+        .clearValueCount = clearValues.size(),
+        .pClearValues = clearValues.data(),
     };
     commandBuffer.beginRenderPass(info, vk::SubpassContents::eInline);
     commandBuffer.draw(
