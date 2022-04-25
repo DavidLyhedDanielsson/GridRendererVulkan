@@ -911,11 +911,11 @@ void RendererVulkan::PreRender()
 
 void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
 {
-    const RenderObject& renderObject = objectsToRender[0];
-
     static bool once = false;
     if(!once)
     {
+        const auto& renderObject = objectsToRender[0];
+
         auto vertexBuffer = bufferManager->GetBuffer(renderObject.GetMesh().GetVertexBuffer());
         vk::DescriptorBufferInfo vertexBufferInfo = {
             .buffer = bufferManager->GetBackingBuffer(renderObject.GetMesh().GetVertexBuffer()),
@@ -996,6 +996,20 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
     }
     const vk::CommandBuffer& commandBuffer = *commandBuffers[currentFrame % BACKBUFFER_COUNT];
 
+    std::array<vk::DescriptorSet, 3> descriptorSets = {
+        *vertexIndexDescriptorSet,
+        *transformDescriptorSets[currentFrame % BACKBUFFER_COUNT],
+        *viewProjectionDescriptorSet,
+    };
+    commandBuffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        *pipelineLayout,
+        0,
+        descriptorSets.size(),
+        descriptorSets.data(),
+        0,
+        nullptr);
+
     std::vector<vk::BufferCopy> copyInfo;
     uint32_t copyOffset = 0;
     for(int i = 0; i < objectsToRender.size(); ++i)
@@ -1010,39 +1024,22 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         });
 
         copyOffset += transformBuffer.sizeWithPadding;
+
+        commandBuffer.copyBuffer(
+            bufferManager->GetBackingBuffer(objectsToRender[i].GetTransformBufferIndex()),
+            bufferManager->GetRoundRobinBuffer(),
+            copyInfo);
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eVertexInput,
+            vk::DependencyFlagBits::eByRegion,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            0,
+            nullptr);
     }
-    commandBuffer.copyBuffer(
-        bufferManager->GetBackingBuffer(renderObject.GetTransformBufferIndex()),
-        bufferManager->GetRoundRobinBuffer(),
-        copyInfo);
-
-    commandBuffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eVertexInput,
-        vk::DependencyFlagBits::eByRegion,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        0,
-        nullptr);
-
-    std::array<vk::DescriptorSet, 5> descriptorSets = {
-        *vertexIndexDescriptorSet,
-        *transformDescriptorSets[currentFrame % BACKBUFFER_COUNT],
-        *viewProjectionDescriptorSet,
-        samplerManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetDiffuseTexture()),
-        // textureManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetDiffuseTexture()),
-        textureManager->GetDescriptorSet(2),
-    };
-    commandBuffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics,
-        *pipelineLayout,
-        0,
-        descriptorSets.size(),
-        descriptorSets.data(),
-        0,
-        nullptr);
 
     std::array<vk::ClearValue, 2> clearValues = {};
     clearValues[0].color = vk::ClearColorValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}};
@@ -1059,16 +1056,44 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         .pClearValues = clearValues.data(),
     };
     commandBuffer.beginRenderPass(info, vk::SubpassContents::eInline);
-    commandBuffer.draw(
-        bufferManager->GetElementCount(renderObject.GetMesh().GetIndexBuffer()),
-        objectsToRender.size(),
-        0,
-        0);
+    uint32_t startIndex = 0;
+    for(uint32_t endIndex = 1; endIndex < objectsToRender.size(); endIndex++)
+    {
+        if(objectsToRender[endIndex].GetSurfaceProperty().GetDiffuseTexture()
+               != objectsToRender[startIndex].GetSurfaceProperty().GetDiffuseTexture()
+           || endIndex + 1 == objectsToRender.size())
+        {
+            const RenderObject& renderObject = objectsToRender[startIndex];
+
+            std::array<vk::DescriptorSet, 2> descriptorSets = {
+                // samplerManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetSampler()),
+                samplerManager->GetDescriptorSet(0), // TODO
+                textureManager->GetDescriptorSet(
+                    renderObject.GetSurfaceProperty().GetDiffuseTexture()),
+            };
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                *pipelineLayout,
+                3,
+                descriptorSets.size(),
+                descriptorSets.data(),
+                0,
+                nullptr);
+
+            commandBuffer.draw(
+                bufferManager->GetElementCount(renderObject.GetMesh().GetIndexBuffer()),
+                endIndex - startIndex,
+                0,
+                startIndex);
+
+            startIndex = endIndex;
+        }
+    }
+    commandBuffer.endRenderPass();
 }
 
 void RendererVulkan::Present()
 {
-    commandBuffers[currentFrame % BACKBUFFER_COUNT]->endRenderPass();
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->end();
 
     vk::PipelineStageFlags waitFlags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
