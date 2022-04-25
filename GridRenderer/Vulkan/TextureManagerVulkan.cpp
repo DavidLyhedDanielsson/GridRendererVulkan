@@ -8,11 +8,13 @@ TextureManagerVulkan::TextureManagerVulkan(
     const vk::UniqueDevice& device,
     const vk::PhysicalDevice& physicalDevice,
     const vk::Queue& uploadQueue,
-    uint32_t queueFamilyIndex)
+    uint32_t queueFamilyIndex,
+    const vk::UniqueDescriptorSetLayout& textureSetLayout)
     : device(device)
     , physicalDevice(physicalDevice)
     , uploadQueue(uploadQueue)
     , queueFamilyIndex(queueFamilyIndex)
+    , textureSetLayout(textureSetLayout)
 {
     vk::CommandPoolCreateInfo commandPoolInfo = {
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -62,6 +64,18 @@ TextureManagerVulkan::TextureManagerVulkan(
     this->stagingBufferMemory = device->allocateMemoryUnique(memoryInfo);
 
     device->bindBufferMemory(*stagingBuffer, *stagingBufferMemory, 0);
+
+    vk::DescriptorPoolSize textureInfo = {
+        .type = vk::DescriptorType::eSampledImage,
+        .descriptorCount = 1,
+    };
+    vk::DescriptorPoolCreateInfo poolInfo = {
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = 10,
+        .poolSizeCount = 1,
+        .pPoolSizes = &textureInfo,
+    };
+    this->descriptorPool = device->createDescriptorPoolUnique(poolInfo);
 }
 
 std::optional<vk::Format> convertVkFormat(const FormatInfo& info)
@@ -229,8 +243,8 @@ ResourceIndex TextureManagerVulkan::AddTexture(void* textureData, const TextureI
     memoryBarrier = {
         .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
         .dstAccessMask = vk::AccessFlagBits::eShaderRead,
-        .oldLayout = vk::ImageLayout::eUndefined,
-        .newLayout = vk::ImageLayout::eTransferDstOptimal,
+        .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+        .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = *image,
@@ -262,6 +276,65 @@ ResourceIndex TextureManagerVulkan::AddTexture(void* textureData, const TextureI
         .pSignalSemaphores = nullptr,
     };
     this->uploadQueue.submit(submitInfo);
+    vk::ImageViewCreateInfo imageViewInfo = {
+        .image = *image,
+        .viewType = vk::ImageViewType::e2D,
+        .format = vk::Format::eR8G8B8A8Unorm, // TODO: hardcoded format, TODO: Unorm or srgb?
+        .components =
+            {
+                .r = vk::ComponentSwizzle::eIdentity,
+                .g = vk::ComponentSwizzle::eIdentity,
+                .b = vk::ComponentSwizzle::eIdentity,
+                .a = vk::ComponentSwizzle::eIdentity,
+            },
+        .subresourceRange =
+            {
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    auto imageView = device->createImageViewUnique(imageViewInfo);
+
     device->waitIdle();
-    return 0;
+
+    vk::DescriptorSetAllocateInfo allocationInfo = {
+        .descriptorPool = *descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &*textureSetLayout,
+    };
+    auto descriptorSet = std::move(device->allocateDescriptorSetsUnique(allocationInfo)[0]);
+
+    vk::DescriptorImageInfo descriptorImageInfo = {
+        .sampler = VK_NULL_HANDLE,
+        .imageView = *imageView,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+    vk::WriteDescriptorSet imageWriteDescriptor = {
+        .dstSet = *descriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eSampledImage,
+        .pImageInfo = &descriptorImageInfo,
+        .pBufferInfo = nullptr,
+        .pTexelBufferView = nullptr,
+    };
+    device->updateDescriptorSets(1, &imageWriteDescriptor, 0, nullptr);
+
+    textures.push_back({
+        .image = std::move(image),
+        .imageView = std::move(imageView),
+        .imageMemory = std::move(imageMemory),
+        .descriptorSet = std::move(descriptorSet),
+    });
+
+    return textures.size() - 1;
+}
+
+const vk::DescriptorSet& TextureManagerVulkan::GetDescriptorSet(ResourceIndex index)
+{
+    return *textures[index].descriptorSet;
 }

@@ -21,6 +21,15 @@
 #include "SamplerManagerVulkan.h"
 #include "TextureManagerVulkan.h"
 
+struct DescriptorSetLayouts
+{
+    vk::UniqueDescriptorSetLayout vertexIndex;
+    vk::UniqueDescriptorSetLayout transformBuffer;
+    vk::UniqueDescriptorSetLayout viewProjection;
+    vk::UniqueDescriptorSetLayout sampler;
+    vk::UniqueDescriptorSetLayout texture;
+};
+
 class RendererVulkan: public Renderer
 {
   private:
@@ -42,11 +51,9 @@ class RendererVulkan: public Renderer
     vk::UniqueRenderPass renderPass;
     std::vector<vk::UniqueFramebuffer> framebuffers;
     std::vector<vk::UniqueImageView> backbufferImageViews;
-    vk::UniqueDescriptorSetLayout vertexIndexDescriptorSetLayout;
-    vk::UniqueDescriptorSetLayout transformBufferDescriptorSetLayout;
-    vk::UniqueDescriptorSetLayout viewProjectionDescriptorSetLayout;
     vk::UniqueDescriptorPool descriptorPool;
     vk::UniqueDescriptorSet vertexIndexDescriptorSet;
+    DescriptorSetLayouts descriptorSetLayouts;
     std::array<vk::UniqueDescriptorSet, BACKBUFFER_COUNT> transformDescriptorSets;
     vk::UniqueDescriptorSet viewProjectionDescriptorSet;
     vk::UniquePipelineLayout pipelineLayout;

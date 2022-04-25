@@ -261,17 +261,12 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
     return device->createRenderPassUnique(renderPassInfo);
 }
 
-std::tuple<
-    vk::UniquePipeline,
-    vk::UniqueDescriptorSetLayout,
-    vk::UniqueDescriptorSetLayout,
-    vk::UniqueDescriptorSetLayout,
-    vk::UniquePipelineLayout>
-    createPipeline(
-        const vk::UniqueDevice& device,
-        const vk::UniqueRenderPass& renderPass,
-        const vk::UniqueShaderModule& vertexShader,
-        const vk::UniqueShaderModule& fragmentShader)
+std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
+    const vk::UniqueDevice& device,
+    const vk::UniqueRenderPass& renderPass,
+    const DescriptorSetLayouts& descriptorSetLayouts,
+    const vk::UniqueShaderModule& vertexShader,
+    const vk::UniqueShaderModule& fragmentShader)
 {
     vk::PipelineShaderStageCreateInfo vertexStageInfo = {
         .stage = vk::ShaderStageFlagBits::eVertex,
@@ -372,61 +367,16 @@ std::tuple<
         .blendConstants = blendConstants,
     };
 
-    vk::DescriptorSetLayoutBinding vertexBufferBinding = {
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eStorageBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .pImmutableSamplers = nullptr,
-    };
-    vk::DescriptorSetLayoutBinding indexBufferBinding = {
-        .binding = 1,
-        .descriptorType = vk::DescriptorType::eStorageBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .pImmutableSamplers = nullptr,
-    };
-    vk::DescriptorSetLayoutBinding vertexIndexDescriptorInfo[2] = {
-        vertexBufferBinding,
-        indexBufferBinding,
-    };
-    auto vertexIndexLayout = device->createDescriptorSetLayoutUnique({
-        .bindingCount = 2,
-        .pBindings = vertexIndexDescriptorInfo,
-    });
-
-    vk::DescriptorSetLayoutBinding transformBinding = {
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eStorageBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .pImmutableSamplers = nullptr,
-    };
-    auto transformLayout = device->createDescriptorSetLayoutUnique({
-        .bindingCount = 1,
-        .pBindings = &transformBinding,
-    });
-
-    vk::DescriptorSetLayoutBinding viewProjection = {
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .pImmutableSamplers = nullptr,
-    };
-    auto viewProjectionLayout = device->createDescriptorSetLayoutUnique({
-        .bindingCount = 1,
-        .pBindings = &viewProjection,
-    });
-
-    vk::DescriptorSetLayout allBindings[3] = {
-        *vertexIndexLayout,
-        *transformLayout,
-        *viewProjectionLayout,
+    std::array<vk::DescriptorSetLayout, 5> allBindings = {
+        *descriptorSetLayouts.vertexIndex,
+        *descriptorSetLayouts.transformBuffer,
+        *descriptorSetLayouts.viewProjection,
+        *descriptorSetLayouts.sampler,
+        *descriptorSetLayouts.texture,
     };
     auto pipelineLayout = device->createPipelineLayoutUnique({
-        .setLayoutCount = 3,
-        .pSetLayouts = allBindings,
+        .setLayoutCount = allBindings.size(),
+        .pSetLayouts = allBindings.data(),
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr,
     });
@@ -451,12 +401,7 @@ std::tuple<
     };
     auto pipeline = device->createGraphicsPipelineUnique(VK_NULL_HANDLE, pipelineInfo);
 
-    return std::make_tuple(
-        std::move(pipeline),
-        std::move(vertexIndexLayout),
-        std::move(transformLayout),
-        std::move(viewProjectionLayout),
-        std::move(pipelineLayout));
+    return std::make_tuple(std::move(pipeline), std::move(pipelineLayout));
 }
 
 vk::UniqueSwapchainKHR createSwapchain(
@@ -565,6 +510,88 @@ vk::UniqueDescriptorPool createDescriptorPool(const vk::UniqueDevice& device)
     return device->createDescriptorPoolUnique(poolInfo);
 }
 
+DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
+{
+    vk::DescriptorSetLayoutBinding vertexBufferBinding = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eStorageBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .pImmutableSamplers = nullptr,
+    };
+    vk::DescriptorSetLayoutBinding indexBufferBinding = {
+        .binding = 1,
+        .descriptorType = vk::DescriptorType::eStorageBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .pImmutableSamplers = nullptr,
+    };
+    vk::DescriptorSetLayoutBinding vertexIndexDescriptorInfo[2] = {
+        vertexBufferBinding,
+        indexBufferBinding,
+    };
+    auto vertexIndexLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 2,
+        .pBindings = vertexIndexDescriptorInfo,
+    });
+
+    vk::DescriptorSetLayoutBinding transformBinding = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eStorageBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .pImmutableSamplers = nullptr,
+    };
+    auto transformLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &transformBinding,
+    });
+
+    vk::DescriptorSetLayoutBinding viewProjection = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .pImmutableSamplers = nullptr,
+    };
+    auto viewProjectionLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &viewProjection,
+    });
+
+    vk::DescriptorSetLayoutBinding sampler = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eSampler,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    auto samplerLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &sampler,
+    });
+
+    vk::DescriptorSetLayoutBinding texture = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eSampledImage,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    auto textureLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &texture,
+    });
+
+    return DescriptorSetLayouts{
+        .vertexIndex = std::move(vertexIndexLayout),
+        .transformBuffer = std::move(transformLayout),
+        .viewProjection = std::move(viewProjectionLayout),
+        .sampler = std::move(samplerLayout),
+        .texture = std::move(textureLayout),
+    };
+}
+
 RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
 {
     // Without vulkan.hpp this would have to be done for every vkEnumerate function
@@ -595,13 +622,17 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     for(auto& semaphore : renderFinishedSemaphores)
         semaphore = device->createSemaphoreUnique({});
 
-    this->samplerManager = std::make_unique<SamplerManagerVulkan>(this->device);
+    this->descriptorSetLayouts = createDescriptorSetlayouts(device);
+
+    this->samplerManager =
+        std::make_unique<SamplerManagerVulkan>(this->device, descriptorSetLayouts.sampler);
     this->bufferManager = std::make_unique<BufferManagerVulkan>(this->device, this->physicalDevice);
     this->textureManager = std::make_unique<TextureManagerVulkan>(
         this->device,
         this->physicalDevice,
         this->graphicsQueue,
-        this->graphicsQueueIndex);
+        this->graphicsQueueIndex,
+        descriptorSetLayouts.texture);
 
     this->commandPool = device->createCommandPoolUnique({
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -639,18 +670,18 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     auto& vsModule = *(shaderModules.end() - 2);
     auto& fsModule = *(shaderModules.end() - 1);
 
-    std::tie(
-        this->pipeline,
-        this->vertexIndexDescriptorSetLayout,
-        this->transformBufferDescriptorSetLayout,
-        this->viewProjectionDescriptorSetLayout,
-        this->pipelineLayout) = createPipeline(this->device, this->renderPass, vsModule, fsModule);
+    std::tie(this->pipeline, this->pipelineLayout) = createPipeline(
+        this->device,
+        this->renderPass,
+        this->descriptorSetLayouts,
+        vsModule,
+        fsModule);
 
     this->descriptorPool = createDescriptorPool(device);
     vk::DescriptorSetAllocateInfo descSetInfo = {
         .descriptorPool = *descriptorPool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &*vertexIndexDescriptorSetLayout,
+        .pSetLayouts = &*descriptorSetLayouts.vertexIndex,
     };
     this->vertexIndexDescriptorSet =
         std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
@@ -660,7 +691,7 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
         descSetInfo = {
             .descriptorPool = *descriptorPool,
             .descriptorSetCount = 1,
-            .pSetLayouts = &*transformBufferDescriptorSetLayout,
+            .pSetLayouts = &*descriptorSetLayouts.transformBuffer,
         };
         this->transformDescriptorSets[i] =
             std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
@@ -669,7 +700,7 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     descSetInfo = {
         .descriptorPool = *descriptorPool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &*viewProjectionDescriptorSetLayout,
+        .pSetLayouts = &*descriptorSetLayouts.viewProjection,
     };
     this->viewProjectionDescriptorSet =
         std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
@@ -872,10 +903,13 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         0,
         nullptr);
 
-    std::array<vk::DescriptorSet, 3> descriptorSets = {
+    std::array<vk::DescriptorSet, 5> descriptorSets = {
         *vertexIndexDescriptorSet,
         *transformDescriptorSets[currentFrame % BACKBUFFER_COUNT],
         *viewProjectionDescriptorSet,
+        samplerManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetDiffuseTexture()),
+        // textureManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetDiffuseTexture()),
+        textureManager->GetDescriptorSet(2),
     };
     commandBuffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
