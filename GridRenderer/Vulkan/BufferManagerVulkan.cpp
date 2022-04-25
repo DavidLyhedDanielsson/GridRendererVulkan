@@ -219,7 +219,19 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
     return buffers.size() - 1;
 }
 
-void BufferManagerVulkan::UpdateBuffer(ResourceIndex index, void* data) {}
+void BufferManagerVulkan::UpdateBuffer(ResourceIndex index, void* data)
+{
+    const Buffer& buffer = buffers[index];
+    assert(buffer.backingBufferType == BackingBufferType::WRITE_ONCE);
+    const BackingBuffer& backingBuffer = writeOnceBackingBuffer;
+
+    void* dataPtr = device->mapMemory(
+        *backingBuffer.memory,
+        buffer.backingBufferOffset,
+        buffer.sizeWithoutPadding);
+    std::memcpy(dataPtr, data, buffer.sizeWithoutPadding);
+    device->unmapMemory(*backingBuffer.memory);
+}
 
 unsigned int BufferManagerVulkan::GetElementSize(ResourceIndex index)
 {
