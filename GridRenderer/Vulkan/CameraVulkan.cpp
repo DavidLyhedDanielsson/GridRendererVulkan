@@ -18,7 +18,7 @@ CameraVulkan::CameraVulkan(
     this->projectionMatrix[1][1] *= -1.0f;
 
     this->position = {0.0f, 0.0f, -4.0f};
-    this->forward = {0.0f, 0.0f, -1.0f};
+    this->forward = {0.0f, 0.0f, 1.0f};
     this->up = {0.0f, 1.0f, 0.0f};
     this->right = {1.0f, 0.0f, 0.0f};
 
@@ -48,8 +48,8 @@ void CameraVulkan::MoveRight(float amount)
 
 void CameraVulkan::RotateY(float radians)
 {
-    forward = glm::rotate(forward, -radians, up);
-    right = glm::rotate(right, -radians, up);
+    forward = glm::rotate(forward, radians, up);
+    right = glm::rotate(right, radians, up);
 }
 
 glm::vec3 CameraVulkan::GetPosition() const

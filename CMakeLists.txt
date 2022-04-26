@@ -122,7 +122,7 @@ else ()
             FileUtils.cpp
             CameraVulkan.cpp)
     list(TRANSFORM VULKAN_SRC_FILES PREPEND ${SRC_ROOT_DIR}Vulkan/)
-    add_compile_definitions(GLM_FORCE_RADIANS  GLM_FORCE_DEPTH_ZERO_TO_ONE)
+    add_compile_definitions(GLM_FORCE_RADIANS  GLM_FORCE_DEPTH_ZERO_TO_ONE GLM_FORCE_LEFT_HANDED)
 endif ()
 
 add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES} ${VULKAN_SRC_FILES})

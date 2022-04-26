@@ -353,7 +353,7 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .rasterizerDiscardEnable = false,
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eCounterClockwise,
+        .frontFace = vk::FrontFace::eClockwise,
         .depthBiasEnable = false,
         .depthBiasConstantFactor = 0.0f,
         .depthBiasClamp = 0.0f,
