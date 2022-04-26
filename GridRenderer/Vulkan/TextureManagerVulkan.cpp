@@ -94,7 +94,7 @@ std::optional<vk::Format> convertVkFormat(const FormatInfo& info)
             // Single word depth not available
 
             // Quad byte float not available
-            make_pair(make_tuple(TCC::QUAD, TCS::BYTE, TCT::UNORM), vk::Format::eR8G8B8A8Unorm),
+            make_pair(make_tuple(TCC::QUAD, TCS::BYTE, TCT::UNORM), vk::Format::eR8G8B8A8Srgb),
             // Quad byte depth not available
             // Quad word float not available
             make_pair(
@@ -279,7 +279,7 @@ ResourceIndex TextureManagerVulkan::AddTexture(void* textureData, const TextureI
     vk::ImageViewCreateInfo imageViewInfo = {
         .image = *image,
         .viewType = vk::ImageViewType::e2D,
-        .format = vk::Format::eR8G8B8A8Unorm, // TODO: hardcoded format, TODO: Unorm or srgb?
+        .format = vk::Format::eR8G8B8A8Srgb, // TODO: hardcoded format
         .components =
             {
                 .r = vk::ComponentSwizzle::eIdentity,
