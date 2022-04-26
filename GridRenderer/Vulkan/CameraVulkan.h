@@ -4,8 +4,7 @@
 
 #include "../Camera.h"
 
-// Forward-declaration reduces compile times
-class BufferManagerVulkan;
+#include "BufferManagerVulkan.h"
 
 class CameraVulkan: public Camera
 {
@@ -16,6 +15,8 @@ class CameraVulkan: public Camera
     glm::vec3 right;
 
     glm::mat4 projectionMatrix;
+
+    ResourceIndex cameraPositionBufferIndex;
 
   public:
     CameraVulkan(
@@ -33,5 +34,8 @@ class CameraVulkan: public Camera
     void MoveRight(float amount) override;
     void RotateY(float radians) override;
 
-    glm::mat4 getViewProjMatrix();
+    glm::vec3 GetPosition() const;
+
+    glm::mat4 GetViewProjMatrix() const;
+    ResourceIndex GetCameraPositionBufferIndex() const;
 };

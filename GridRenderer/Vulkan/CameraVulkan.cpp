@@ -4,8 +4,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include "BufferManagerVulkan.h"
-
 #if !GLM_FORCE_DEPTH_ZERO_TO_ONE || !GLM_FORCE_RADIANS
     #error GLM compile flags are not set
 #endif
@@ -16,13 +14,21 @@ CameraVulkan::CameraVulkan(
     float maxDepth,
     float aspectRatio)
 {
-    projectionMatrix = glm::perspective(glm::radians(90.0f), aspectRatio, minDepth, maxDepth);
-    projectionMatrix[1][1] *= -1.0f;
+    this->projectionMatrix = glm::perspective(glm::radians(90.0f), aspectRatio, minDepth, maxDepth);
+    this->projectionMatrix[1][1] *= -1.0f;
 
-    position = {0.0f, 0.0f, -4.0f};
-    forward = {0.0f, 0.0f, -1.0f};
-    up = {0.0f, 1.0f, 0.0f};
-    right = {1.0f, 0.0f, 0.0f};
+    this->position = {0.0f, 0.0f, -4.0f};
+    this->forward = {0.0f, 0.0f, -1.0f};
+    this->up = {0.0f, 1.0f, 0.0f};
+    this->right = {1.0f, 0.0f, 0.0f};
+
+    this->cameraPositionBufferIndex = bufferManager.AddBuffer(
+        &position,
+        sizeof(float),
+        4,
+        PerFrameWritePattern::NEVER,
+        PerFrameWritePattern::NEVER,
+        BufferBinding::CONSTANT_BUFFER);
 }
 
 void CameraVulkan::MoveForward(float amount)
@@ -46,7 +52,17 @@ void CameraVulkan::RotateY(float radians)
     right = glm::rotate(right, -radians, up);
 }
 
-glm::mat4 CameraVulkan::getViewProjMatrix()
+glm::vec3 CameraVulkan::GetPosition() const
+{
+    return position;
+}
+
+glm::mat4 CameraVulkan::GetViewProjMatrix() const
 {
     return projectionMatrix * glm::lookAt(position, position + forward, up);
+}
+
+ResourceIndex CameraVulkan::GetCameraPositionBufferIndex() const
+{
+    return cameraPositionBufferIndex;
 }

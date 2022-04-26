@@ -411,6 +411,7 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         *descriptorSetLayouts.textures, // diffuse
         *descriptorSetLayouts.textures, // specular
         *descriptorSetLayouts.lights,
+        *descriptorSetLayouts.cameraPosition,
     });
     auto pipelineLayout = device->createPipelineLayoutUnique({
         .setLayoutCount = allBindings.size(),
@@ -638,6 +639,18 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
         .pBindings = &lights,
     });
 
+    vk::DescriptorSetLayoutBinding cameraPosition = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    auto cameraPositionLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &cameraPosition,
+    });
+
     return DescriptorSetLayouts{
         .vertexIndex = std::move(vertexIndexLayout),
         .transformBuffer = std::move(transformLayout),
@@ -645,6 +658,7 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
         .sampler = std::move(samplerLayout),
         .textures = std::move(texturesLayout),
         .lights = std::move(lightsLayout),
+        .cameraPosition = std::move(cameraPositionLayout),
     };
 }
 
@@ -852,6 +866,14 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     this->lightBufferDescriptorSet =
         std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
 
+    descSetInfo = {
+        .descriptorPool = *descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &*descriptorSetLayouts.cameraPosition,
+    };
+    this->cameraPositionDescriptorSet =
+        std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
+
     this->renderPasses.push_back(GraphicsRenderPassVulkan(
         vsModule,
         fsModule,
@@ -871,7 +893,7 @@ Camera* RendererVulkan::CreateCamera(float minDepth, float maxDepth, float aspec
     this->cameraOpt = CameraVulkan(*bufferManager, minDepth, maxDepth, aspectRatio);
 
     CameraVulkan& camera = this->cameraOpt.value();
-    auto viewProj = camera.getViewProjMatrix();
+    auto viewProj = camera.GetViewProjMatrix();
     cameraBufferIndex = bufferManager->AddBuffer(
         &viewProj,
         sizeof(float),
@@ -944,8 +966,10 @@ void RendererVulkan::PreRender()
     device->resetFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT]);
     assert(res == vk::Result::eSuccess);
 
-    glm::mat4 viewProj = cameraOpt->getViewProjMatrix();
+    glm::mat4 viewProj = cameraOpt->GetViewProjMatrix();
     bufferManager->UpdateBuffer(cameraBufferIndex, &viewProj);
+    glm::vec3 cameraPosition = cameraOpt->GetPosition();
+    bufferManager->UpdateBuffer(cameraOpt->GetCameraPositionBufferIndex(), &cameraPosition);
 
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->reset();
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->begin(
@@ -961,6 +985,14 @@ void RendererVulkan::PreRender()
         6,
         1,
         &*lightBufferDescriptorSet,
+        0,
+        nullptr);
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        *pipelineLayout,
+        7,
+        1,
+        &*cameraPositionDescriptorSet,
         0,
         nullptr);
 }
@@ -1047,6 +1079,25 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
             .pTexelBufferView = nullptr,
         };
         device->updateDescriptorSets(1, &viewProjectionWriteDescriptor, 0, nullptr);
+
+        const CameraVulkan& camera = *this->cameraOpt;
+        const auto& buffer = bufferManager->GetBuffer(camera.GetCameraPositionBufferIndex());
+        vk::DescriptorBufferInfo bufferInfo = {
+            .buffer = bufferManager->GetBackingBuffer(camera.GetCameraPositionBufferIndex()),
+            .offset = buffer.backingBufferOffset,
+            .range = buffer.sizeWithoutPadding,
+        };
+        vk::WriteDescriptorSet bufferDescriptor = {
+            .dstSet = *cameraPositionDescriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .pImageInfo = nullptr,
+            .pBufferInfo = &bufferInfo,
+            .pTexelBufferView = nullptr,
+        };
+        device->updateDescriptorSets(1, &bufferDescriptor, 0, nullptr);
 
         once = true;
     }

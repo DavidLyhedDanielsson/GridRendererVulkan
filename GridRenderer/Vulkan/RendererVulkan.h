@@ -29,6 +29,7 @@ struct DescriptorSetLayouts
     vk::UniqueDescriptorSetLayout sampler;
     vk::UniqueDescriptorSetLayout textures; // Diffuse and specular share this layout
     vk::UniqueDescriptorSetLayout lights;
+    vk::UniqueDescriptorSetLayout cameraPosition;
 };
 
 class RendererVulkan: public Renderer
@@ -68,6 +69,7 @@ class RendererVulkan: public Renderer
 
     std::optional<CameraVulkan> cameraOpt;
     ResourceIndex cameraBufferIndex;
+    vk::UniqueDescriptorSet cameraPositionDescriptorSet;
 
     ResourceIndex lightBufferIndex;
     vk::UniqueDescriptorSet lightBufferDescriptorSet;

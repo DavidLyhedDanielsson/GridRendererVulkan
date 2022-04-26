@@ -28,6 +28,12 @@ layout(binding = 0, set = 6) readonly buffer LightBuffer
 }
 lights;
 
+// The interface name is optional
+layout(binding = 0, set = 7) uniform CameraBuffer
+{
+    vec3 cameraPos;
+};
+
 void main()
 {
     vec3 ambient = vec3(0.1, 0.1, 0.1);
@@ -42,8 +48,7 @@ void main()
 
     vec3 position = worldPosition;
     vec3 normal = normalize(normal);
-    // vec3 viewVector = normalize(cameraPos - position);
-    vec3 viewVector = vec3(0.0, 0.0, 0.0);
+    vec3 viewVector = normalize(cameraPos - position);
 
     for(uint i = 0; i < nrOfLights; ++i)
     {
