@@ -51,13 +51,14 @@ void main()
     uint index = indexBuffer.indices[gl_VertexIndex];
     Vertex vertex = vertexBuffer.vertices[index];
 
-    vec4 worldPosition = transpose(transformBuffer.worldMatrices[gl_InstanceIndex])
-                         * vec4(vertex.positionX, vertex.positionY, vertex.positionZ, 1.0);
+    vec3 position = vec3(vertex.positionX, vertex.positionY, vertex.positionZ);
+    vec3 normal = vec3(vertex.normalX, vertex.normalY, vertex.normalZ);
+    mat4 worldMatrix = transpose(transformBuffer.worldMatrices[gl_InstanceIndex]);
+
+    vec4 worldPosition = worldMatrix * vec4(position, 1.0);
     gl_Position = cameraBuffer.viewProjMatrix * worldPosition;
 
     outWorldPosition = worldPosition.xyz;
     outUv = vec2(vertex.uvX, vertex.uvY);
-    outNormal = (transpose(transformBuffer.worldMatrices[gl_InstanceIndex])
-                 * vec4(vertex.normalX, vertex.normalY, vertex.normalZ, 0.0))
-                    .xyz;
+    outNormal = (worldMatrix * vec4(normal, 0.0)).xyz;
 }
