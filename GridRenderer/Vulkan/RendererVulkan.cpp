@@ -126,14 +126,9 @@ vk::UniqueSurfaceKHR createSurface(SDL_Window* handle, const vk::UniqueInstance&
     return vk::UniqueSurfaceKHR(surfaceRaw, *instance);
 }
 
-struct DeviceInfo
-{
-    vk::UniqueDevice device;
-    vk::PhysicalDevice physicalDevice;
-    uint32_t graphicsQueueIndex;
-};
-
-DeviceInfo createDevice(const vk::UniqueInstance& instance, const vk::UniqueSurfaceKHR& surface)
+std::tuple<vk::UniqueDevice, vk::PhysicalDevice, uint32_t> createDevice(
+    const vk::UniqueInstance& instance,
+    const vk::UniqueSurfaceKHR& surface)
 {
     std::vector<vk::PhysicalDevice> pDevices = instance->enumeratePhysicalDevices();
     std::optional<vk::PhysicalDevice> pickedPDeviceOpt;
@@ -195,16 +190,15 @@ DeviceInfo createDevice(const vk::UniqueInstance& instance, const vk::UniqueSurf
         .pQueueCreateInfos = &queueCreateInfo,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = nullptr,
-        .enabledExtensionCount = std::size(requiredExtensions),
+        .enabledExtensionCount = (uint32_t)std::size(requiredExtensions),
         .ppEnabledExtensionNames = requiredExtensions,
         .pEnabledFeatures = nullptr,
     };
 
-    return {
-        .device = pickedPDevice.createDeviceUnique(deviceCreateInfo),
-        .physicalDevice = pickedPDevice,
-        .graphicsQueueIndex = graphicsQueueIndex,
-    };
+    return std::make_tuple(
+        pickedPDevice.createDeviceUnique(deviceCreateInfo),
+        pickedPDevice,
+        graphicsQueueIndex);
 }
 
 vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
@@ -274,7 +268,7 @@ vk::UniqueRenderPass createRenderPass(const vk::UniqueDevice& device)
         depthbufferAttachmentDescription,
     };
     vk::RenderPassCreateInfo renderPassInfo = {
-        .attachmentCount = attachmentDescriptions.size(),
+        .attachmentCount = (uint32_t)attachmentDescriptions.size(),
         .pAttachments = attachmentDescriptions.data(),
         .subpassCount = 1,
         .pSubpasses = &subpass,
@@ -414,7 +408,7 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         *descriptorSetLayouts.cameraPosition,
     });
     auto pipelineLayout = device->createPipelineLayoutUnique({
-        .setLayoutCount = allBindings.size(),
+        .setLayoutCount = (uint32_t)allBindings.size(),
         .pSetLayouts = allBindings.data(),
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr,
@@ -438,7 +432,8 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .basePipelineHandle = nullptr,
         .basePipelineIndex = -1,
     };
-    auto pipeline = device->createGraphicsPipelineUnique(VK_NULL_HANDLE, pipelineInfo);
+    auto [error, pipeline] = device->createGraphicsPipelineUnique(VK_NULL_HANDLE, pipelineInfo);
+    assert(error == vk::Result::eSuccess);
 
     return std::make_tuple(std::move(pipeline), std::move(pipelineLayout));
 }
@@ -446,8 +441,7 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
 vk::UniqueSwapchainKHR createSwapchain(
     const vk::UniqueSurfaceKHR& surface,
     const vk::UniqueDevice& device,
-    const vk::PhysicalDevice& physicalDevice,
-    uint32_t queueFamilyIndex)
+    const vk::PhysicalDevice& physicalDevice)
 {
     auto formats = physicalDevice.getSurfaceFormatsKHR(*surface);
     return device->createSwapchainKHRUnique({
@@ -515,7 +509,7 @@ std::tuple<std::vector<vk::UniqueFramebuffer>, std::vector<vk::UniqueImageView>>
             };
             vk::FramebufferCreateInfo framebufferInfo = {
                 .renderPass = *renderPass,
-                .attachmentCount = attachments.size(),
+                .attachmentCount = (uint32_t)attachments.size(),
                 .pAttachments = attachments.data(),
                 .width = 1280, // TODO
                 .height = 720, // TODO
@@ -547,7 +541,7 @@ vk::UniqueDescriptorPool createDescriptorPool(const vk::UniqueDevice& device)
     vk::DescriptorPoolCreateInfo poolInfo = {
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = 10,
-        .poolSizeCount = poolSizes.size(),
+        .poolSizeCount = (uint32_t)poolSizes.size(),
         .pPoolSizes = poolSizes.data(),
     };
 
@@ -754,16 +748,9 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     this->instance = createInstance(sdlExtensions);
     this->debugCallback = initializeDebugCallback(instance);
     this->surface = createSurface(windowHandle, instance);
-    {
-        // Inner scope to avoid polluting function with temporary (and potentially moved!)
-        // variables
-        auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
-        this->device = std::move(device);
-        this->physicalDevice = std::move(physicalDevice);
-        this->graphicsQueueIndex = graphicsQueueIndex;
-    }
+    std::tie(device, physicalDevice, graphicsQueueIndex) = createDevice(instance, surface);
     this->graphicsQueue = device->getQueue(graphicsQueueIndex, 0);
-    this->swapchain = createSwapchain(surface, device, physicalDevice, graphicsQueueIndex);
+    this->swapchain = createSwapchain(surface, device, physicalDevice);
     this->renderPass = createRenderPass(device);
     std::tie(this->depthBuffer, this->depthBufferMemory, this->depthBufferView) =
         createDepthBuffer(device, physicalDevice, graphicsQueueIndex);
@@ -1115,7 +1102,7 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         vk::PipelineBindPoint::eGraphics,
         *pipelineLayout,
         0,
-        descriptorSets.size(),
+        (uint32_t)descriptorSets.size(),
         descriptorSets.data(),
         0,
         nullptr);
@@ -1162,7 +1149,7 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
                 .offset = {0, 0},
                 .extent = {1280, 720} // TODO
             },
-        .clearValueCount = clearValues.size(),
+        .clearValueCount = (uint32_t)clearValues.size(),
         .pClearValues = clearValues.data(),
     };
     commandBuffer.beginRenderPass(info, vk::SubpassContents::eInline);
@@ -1187,7 +1174,7 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
                 vk::PipelineBindPoint::eGraphics,
                 *pipelineLayout,
                 3,
-                descriptorSets.size(),
+                (uint32_t)descriptorSets.size(),
                 descriptorSets.data(),
                 0,
                 nullptr);
