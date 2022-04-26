@@ -57,5 +57,7 @@ void main()
 
     outWorldPosition = worldPosition.xyz;
     outUv = vec2(vertex.uvX, vertex.uvY);
-    outNormal = vec3(vertex.normalX, vertex.normalY, vertex.normalZ);
+    outNormal = (transpose(transformBuffer.worldMatrices[gl_InstanceIndex])
+                 * vec4(vertex.normalX, vertex.normalY, vertex.normalZ, 0.0))
+                    .xyz;
 }
