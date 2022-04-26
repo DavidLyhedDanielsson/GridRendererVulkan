@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.21)
 project(GridRenderer)
 
 # Choose one :)
-#set(RENDER_BACKEND VULKAN)
-set(RENDER_BACKEND D3D11)
+set(RENDER_BACKEND VULKAN)
+#set(RENDER_BACKEND D3D11)
 
 if (NOT DEFINED RENDER_BACKEND)
     message(FATAL_ERROR "One render backend must be selected")
