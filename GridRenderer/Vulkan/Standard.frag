@@ -8,7 +8,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(binding = 0, set = 3) uniform sampler samp;
 layout(binding = 0, set = 4) uniform texture2D diffuseTexture;
-layout(binding = 1, set = 4) uniform texture2D specularTexture;
+layout(binding = 0, set = 5) uniform texture2D specularTexture;
 
 struct Light
 {
@@ -22,7 +22,7 @@ struct Light
 
 // This buffer is small, but uniform buffers don't allow unsized arrays so an
 // ssbo has to be used
-layout(binding = 0, set = 5) readonly buffer LightBuffer
+layout(binding = 0, set = 6) readonly buffer LightBuffer
 {
     Light lights[];
 }

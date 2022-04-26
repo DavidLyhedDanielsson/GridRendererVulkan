@@ -403,14 +403,15 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .blendConstants = blendConstants,
     };
 
-    std::array<vk::DescriptorSetLayout, 6> allBindings = {
+    auto allBindings = std::to_array({
         *descriptorSetLayouts.vertexIndex,
         *descriptorSetLayouts.transformBuffer,
         *descriptorSetLayouts.viewProjection,
         *descriptorSetLayouts.sampler,
-        *descriptorSetLayouts.texture,
+        *descriptorSetLayouts.textures, // diffuse
+        *descriptorSetLayouts.textures, // specular
         *descriptorSetLayouts.lights,
-    };
+    });
     auto pipelineLayout = device->createPipelineLayoutUnique({
         .setLayoutCount = allBindings.size(),
         .pSetLayouts = allBindings.data(),
@@ -613,16 +614,16 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
         .pBindings = &sampler,
     });
 
-    vk::DescriptorSetLayoutBinding texture = {
+    vk::DescriptorSetLayoutBinding textures = {
         .binding = 0,
         .descriptorType = vk::DescriptorType::eSampledImage,
         .descriptorCount = 1,
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .pImmutableSamplers = nullptr,
     };
-    auto textureLayout = device->createDescriptorSetLayoutUnique({
+    auto texturesLayout = device->createDescriptorSetLayoutUnique({
         .bindingCount = 1,
-        .pBindings = &texture,
+        .pBindings = &textures,
     });
 
     vk::DescriptorSetLayoutBinding lights = {
@@ -642,7 +643,7 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
         .transformBuffer = std::move(transformLayout),
         .viewProjection = std::move(viewProjectionLayout),
         .sampler = std::move(samplerLayout),
-        .texture = std::move(textureLayout),
+        .textures = std::move(texturesLayout),
         .lights = std::move(lightsLayout),
     };
 }
@@ -770,7 +771,7 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
         this->physicalDevice,
         this->graphicsQueue,
         this->graphicsQueueIndex,
-        descriptorSetLayouts.texture);
+        descriptorSetLayouts.textures);
 
     this->commandPool = device->createCommandPoolUnique({
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -957,7 +958,7 @@ void RendererVulkan::PreRender()
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
         *pipelineLayout,
-        5,
+        6,
         1,
         &*lightBufferDescriptorSet,
         0,
@@ -1120,12 +1121,14 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         {
             const RenderObject& renderObject = objectsToRender[startIndex];
 
-            std::array<vk::DescriptorSet, 2> descriptorSets = {
+            auto descriptorSets = std::to_array<vk::DescriptorSet>({
                 // samplerManager->GetDescriptorSet(renderObject.GetSurfaceProperty().GetSampler()),
                 samplerManager->GetDescriptorSet(0), // TODO
                 textureManager->GetDescriptorSet(
                     renderObject.GetSurfaceProperty().GetDiffuseTexture()),
-            };
+                textureManager->GetDescriptorSet(
+                    renderObject.GetSurfaceProperty().GetSpecularTexture()),
+            });
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 *pipelineLayout,

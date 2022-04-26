@@ -27,7 +27,7 @@ struct DescriptorSetLayouts
     vk::UniqueDescriptorSetLayout transformBuffer;
     vk::UniqueDescriptorSetLayout viewProjection;
     vk::UniqueDescriptorSetLayout sampler;
-    vk::UniqueDescriptorSetLayout texture;
+    vk::UniqueDescriptorSetLayout textures; // Diffuse and specular share this layout
     vk::UniqueDescriptorSetLayout lights;
 };
 
