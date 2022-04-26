@@ -30,6 +30,8 @@ elseif (RENDER_BACKEND STREQUAL "VULKAN")
     if (NOT DEFINED Vulkan_GLSLC_EXECUTABLE)
         message(FATAL_ERROR "Couldn't find glslc")
     endif()
+
+    find_package(glm REQUIRED)
 endif ()
 find_package(SDL2 CONFIG REQUIRED)
 
@@ -143,6 +145,7 @@ elseif (RENDER_BACKEND STREQUAL "VULKAN")
     set(LINK_LIBRARIES ${Vulkan_LIBRARIES})
 
     target_include_directories(GridRenderer PRIVATE ${Vulkan_INCLUDE_DIRS})
+    target_link_libraries(GridRenderer PRIVATE glm::glm)
     target_compile_definitions(GridRenderer PRIVATE
             VULKAN_HPP_NO_CONSTRUCTORS # Prefer designated initializers over constructors
             # The code base uses exceptions, but if not using exceptions this should be defined
