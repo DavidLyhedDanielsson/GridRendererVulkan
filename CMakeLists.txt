@@ -134,7 +134,7 @@ add_executable(GridRenderer ${SRC_FILES} ${D3D11_SRC_FILES} ${VULKAN_SRC_FILES})
 if (MSVC)
     target_compile_options(GridRenderer PRIVATE /W4)
 else ()
-    target_compile_options(GridRenderer PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(GridRenderer PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 endif ()
 
 add_dependencies(GridRenderer shaders)

@@ -47,7 +47,6 @@ class BufferManagerVulkan: public BufferManager
 {
   private:
     const vk::UniqueDevice& device;
-    const vk::PhysicalDevice& physicalDevice;
 
     BackingBuffer writeOnceBackingBuffer;
     BackingBuffer dynamicBackingBuffer;
@@ -59,7 +58,7 @@ class BufferManagerVulkan: public BufferManager
     BufferManagerVulkan(const BufferManagerVulkan& other) = delete;
     BufferManagerVulkan& operator=(const BufferManagerVulkan& other) = delete;
     BufferManagerVulkan(BufferManagerVulkan&& other) = default;
-    BufferManagerVulkan& operator=(BufferManagerVulkan&& other) = default;
+    BufferManagerVulkan& operator=(BufferManagerVulkan&& other) = delete;
 
     ResourceIndex AddBuffer(
         void* data,

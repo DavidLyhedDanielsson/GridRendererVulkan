@@ -22,7 +22,7 @@ class GraphicsRenderPassVulkan: public GraphicsRenderPass
     GraphicsRenderPassVulkan(const GraphicsRenderPassVulkan& other) = delete;
     GraphicsRenderPassVulkan& operator=(const GraphicsRenderPassVulkan& other) = delete;
     GraphicsRenderPassVulkan(GraphicsRenderPassVulkan&& other) = default;
-    GraphicsRenderPassVulkan& operator=(GraphicsRenderPassVulkan&& other) = default;
+    GraphicsRenderPassVulkan& operator=(GraphicsRenderPassVulkan&& other) = delete;
 
     const std::vector<PipelineBinding>& GetObjectBindings();
     const std::vector<PipelineBinding>& GetGlobalBindings();

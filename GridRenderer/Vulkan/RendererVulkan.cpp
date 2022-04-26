@@ -840,7 +840,7 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     this->vertexIndexDescriptorSet =
         std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
 
-    for(int i = 0; i < BACKBUFFER_COUNT; ++i)
+    for(uint32_t i = 0; i < BACKBUFFER_COUNT; ++i)
     {
         descSetInfo = {
             .descriptorPool = *descriptorPool,
@@ -956,7 +956,9 @@ void RendererVulkan::SetLightBuffer(ResourceIndex lightBufferIndexToUse)
 
 void RendererVulkan::PreRender()
 {
-    device->waitForFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT], true, UINT64_MAX);
+    assert(
+        device->waitForFences(*queueDoneFences[currentFrame % BACKBUFFER_COUNT], true, UINT64_MAX)
+        == vk::Result::eSuccess);
 
     vk::Result res;
     std::tie(res, currentSwapchainImageIndex) = device->acquireNextImageKHR(
@@ -1043,7 +1045,7 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
         device->updateDescriptorSets(2, descriptorSets, 0, nullptr);
 
         // Transform updates every frame
-        for(int i = 0; i < BACKBUFFER_COUNT; ++i)
+        for(uint32_t i = 0; i < BACKBUFFER_COUNT; ++i)
         {
             vk::DescriptorBufferInfo roundRobinBufferInfo = {
                 .buffer = bufferManager->GetRoundRobinBuffer(),
@@ -1120,7 +1122,7 @@ void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)
 
     std::vector<vk::BufferCopy> copyInfo;
     uint32_t copyOffset = 0;
-    for(int i = 0; i < objectsToRender.size(); ++i)
+    for(size_t i = 0; i < objectsToRender.size(); ++i)
     {
         auto transformBuffer =
             bufferManager->GetBuffer(objectsToRender[i].GetTransformBufferIndex());

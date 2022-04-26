@@ -25,7 +25,7 @@ class SamplerManagerVulkan: public SamplerManager
     SamplerManagerVulkan(const SamplerManagerVulkan& other) = delete;
     SamplerManagerVulkan& operator=(const SamplerManagerVulkan& other) = delete;
     SamplerManagerVulkan(SamplerManagerVulkan&& other) = default;
-    SamplerManagerVulkan& operator=(SamplerManagerVulkan&& other) = default;
+    SamplerManagerVulkan& operator=(SamplerManagerVulkan&& other) = delete;
 
     ResourceIndex CreateSampler(SamplerType type, AddressMode adressMode) override;
     const vk::DescriptorSet& GetDescriptorSet(ResourceIndex index);

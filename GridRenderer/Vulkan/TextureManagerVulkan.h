@@ -42,7 +42,7 @@ class TextureManagerVulkan: public TextureManager
     TextureManagerVulkan(const TextureManagerVulkan& other) = delete;
     TextureManagerVulkan& operator=(const TextureManagerVulkan& other) = delete;
     TextureManagerVulkan(TextureManagerVulkan&& other) = default;
-    TextureManagerVulkan& operator=(TextureManagerVulkan&& other) = default;
+    TextureManagerVulkan& operator=(TextureManagerVulkan&& other) = delete;
 
     ResourceIndex AddTexture(void* textureData, const TextureInfo& textureInfo) override;
     const vk::DescriptorSet& GetDescriptorSet(ResourceIndex index);

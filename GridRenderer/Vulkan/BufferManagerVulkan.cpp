@@ -158,7 +158,6 @@ BufferManagerVulkan::BufferManagerVulkan(
     const vk::UniqueDevice& device,
     const vk::PhysicalDevice& physicalDevice)
     : device(device)
-    , physicalDevice(physicalDevice)
     , writeOnceBackingBuffer(createWriteOnceBackingBuffer(device, physicalDevice))
     , dynamicBackingBuffer(createDynamicBackingBuffer(device, physicalDevice))
     , roundRobinBuffer(createRoundRobinBuffer(device, physicalDevice))
@@ -173,6 +172,8 @@ ResourceIndex BufferManagerVulkan::AddBuffer(
     PerFrameWritePattern gpuWrite,
     unsigned int bindingFlags)
 {
+    (void)gpuWrite;
+
     auto backingBufferType = cpuWrite == PerFrameWritePattern::NEVER ? BackingBufferType::WRITE_ONCE
                                                                      : BackingBufferType::DYNAMIC;
 
