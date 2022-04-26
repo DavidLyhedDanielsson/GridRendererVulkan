@@ -755,7 +755,8 @@ RendererVulkan::RendererVulkan(SDL_Window* windowHandle): currentFrame(0)
     this->debugCallback = initializeDebugCallback(instance);
     this->surface = createSurface(windowHandle, instance);
     {
-        // Inner scope to avoid polluting function with temporary (and potentially moved!) variables
+        // Inner scope to avoid polluting function with temporary (and potentially moved!)
+        // variables
         auto [device, physicalDevice, graphicsQueueIndex] = createDevice(instance, surface);
         this->device = std::move(device);
         this->physicalDevice = std::move(physicalDevice);
