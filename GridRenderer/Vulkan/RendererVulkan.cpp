@@ -403,12 +403,13 @@ std::tuple<vk::UniquePipeline, vk::UniquePipelineLayout> createPipeline(
         .blendConstants = blendConstants,
     };
 
-    std::array<vk::DescriptorSetLayout, 5> allBindings = {
+    std::array<vk::DescriptorSetLayout, 6> allBindings = {
         *descriptorSetLayouts.vertexIndex,
         *descriptorSetLayouts.transformBuffer,
         *descriptorSetLayouts.viewProjection,
         *descriptorSetLayouts.sampler,
         *descriptorSetLayouts.texture,
+        *descriptorSetLayouts.lights,
     };
     auto pipelineLayout = device->createPipelineLayoutUnique({
         .setLayoutCount = allBindings.size(),
@@ -624,12 +625,25 @@ DescriptorSetLayouts createDescriptorSetlayouts(const vk::UniqueDevice& device)
         .pBindings = &texture,
     });
 
+    vk::DescriptorSetLayoutBinding lights = {
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eStorageBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+    auto lightsLayout = device->createDescriptorSetLayoutUnique({
+        .bindingCount = 1,
+        .pBindings = &lights,
+    });
+
     return DescriptorSetLayouts{
         .vertexIndex = std::move(vertexIndexLayout),
         .transformBuffer = std::move(transformLayout),
         .viewProjection = std::move(viewProjectionLayout),
         .sampler = std::move(samplerLayout),
         .texture = std::move(textureLayout),
+        .lights = std::move(lightsLayout),
     };
 }
 
@@ -829,6 +843,14 @@ GraphicsRenderPass* RendererVulkan::CreateGraphicsRenderPass(
     this->viewProjectionDescriptorSet =
         std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
 
+    descSetInfo = {
+        .descriptorPool = *descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &*descriptorSetLayouts.lights,
+    };
+    this->lightBufferDescriptorSet =
+        std::move(device->allocateDescriptorSetsUnique(descSetInfo)[0]);
+
     this->renderPasses.push_back(GraphicsRenderPassVulkan(
         vsModule,
         fsModule,
@@ -885,7 +907,28 @@ void RendererVulkan::SetRenderPass(GraphicsRenderPass* toSet) {}
 
 void RendererVulkan::SetCamera(Camera* toSet) {}
 
-void RendererVulkan::SetLightBuffer(ResourceIndex lightBufferIndexToUse) {}
+void RendererVulkan::SetLightBuffer(ResourceIndex lightBufferIndexToUse)
+{
+    this->lightBufferIndex = lightBufferIndexToUse;
+
+    const auto& buffer = bufferManager->GetBuffer(lightBufferIndex);
+    vk::DescriptorBufferInfo bufferInfo = {
+        .buffer = bufferManager->GetBackingBuffer(lightBufferIndex),
+        .offset = buffer.backingBufferOffset,
+        .range = buffer.sizeWithoutPadding,
+    };
+    vk::WriteDescriptorSet bufferDescriptor = {
+        .dstSet = *lightBufferDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eStorageBuffer,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &bufferInfo,
+        .pTexelBufferView = nullptr,
+    };
+    device->updateDescriptorSets(1, &bufferDescriptor, 0, nullptr);
+}
 
 void RendererVulkan::PreRender()
 {
@@ -910,6 +953,15 @@ void RendererVulkan::PreRender()
     commandBuffers[currentFrame % BACKBUFFER_COUNT]->bindPipeline(
         vk::PipelineBindPoint::eGraphics,
         *pipeline);
+
+    commandBuffers[currentFrame % BACKBUFFER_COUNT]->bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        *pipelineLayout,
+        5,
+        1,
+        &*lightBufferDescriptorSet,
+        0,
+        nullptr);
 }
 
 void RendererVulkan::Render(const std::vector<RenderObject>& objectsToRender)

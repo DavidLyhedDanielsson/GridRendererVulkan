@@ -28,6 +28,7 @@ struct DescriptorSetLayouts
     vk::UniqueDescriptorSetLayout viewProjection;
     vk::UniqueDescriptorSetLayout sampler;
     vk::UniqueDescriptorSetLayout texture;
+    vk::UniqueDescriptorSetLayout lights;
 };
 
 class RendererVulkan: public Renderer
@@ -67,6 +68,9 @@ class RendererVulkan: public Renderer
 
     std::optional<CameraVulkan> cameraOpt;
     ResourceIndex cameraBufferIndex;
+
+    ResourceIndex lightBufferIndex;
+    vk::UniqueDescriptorSet lightBufferDescriptorSet;
 
     // Use dynamic memory so that the sampler manager can be initialized with a reference to
     // this->device
